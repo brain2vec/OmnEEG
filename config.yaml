@@ -1,4 +1,5 @@
 sfreq: 128  # sampling frequency in Hertz
-epochs: 1  # duration of epochs in seconds
+epochs: 10  # number of epochs to extract
+duration: 1  # duration of epochs in seconds
 data: "./data/"  # cohort .yaml files + HDF5 epochs
 overwrite: True  # overwrite HDF5 epochs?
