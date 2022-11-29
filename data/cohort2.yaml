@@ -1,0 +1,4 @@
+regexp: '/PATH_TO_COHORT2/**/*.edf'
+create_epochs: True
+rename_channels: {'Ch1':'P7','Ch2':'P4','Ch3':'Cz','Ch4':'Pz','Ch5':'P3','Ch6':'P8','Ch7':'O1','Ch8':'O2','Ch9':'T8','Ch10':'F8','Ch11':'C4','Ch12':'F4','Ch13':'Fp2','Ch14':'Fz','Ch15':'C3','Ch16':'F3','Ch17':'Fp1','Ch18':'T7','Ch19':'F7','Ch20':'Oz','Ch21':'PO4','Ch22':'FC6','Ch23':'FC2','Ch24':'AF4','Ch25':'CP6','Ch26':'CP2','Ch27':'CP1','Ch28':'CP5','Ch29':'FC1','Ch30':'FC5','Ch31':'AF3','Ch32':'PO3'}
+set_montage: 'standard_1020'

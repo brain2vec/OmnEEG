@@ -1,0 +1,4 @@
+regexp: '/PATH_TO_COHORT3/*.mff'
+create_epochs: True
+rename_channels: False
+set_montage: False

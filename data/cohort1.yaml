@@ -1,0 +1,4 @@
+regexp: '/PATH_TO_COHORT1/**/*.fif'
+create_epochs: False
+rename_channels: False
+set_montage: False
