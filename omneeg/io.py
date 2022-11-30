@@ -18,6 +18,7 @@ from glob import glob
 import yaml
 import mne
 import h5py
+from omneeg.transform import Interpolate
 
 
 class EEG(Dataset):
@@ -25,10 +26,11 @@ class EEG(Dataset):
         self.cohort = cohort
         with open('config.yaml') as f:
             cfg = yaml.load(f, Loader=yaml.FullLoader)
+            self.data = cfg['data']
             self.sfreq = cfg['sfreq']
             self.duration = cfg['duration']
             self.epochs = cfg['epochs']
-            self.data = cfg['data']
+            self.resolution = cfg['resolution']
             self.overwrite = cfg['overwrite']
             self.info = None
         with open(os.path.join(self.data, f'{cohort}.yaml')) as f:
@@ -42,7 +44,7 @@ class EEG(Dataset):
     def __getitem__(self, i):
         filename = self.filenames[i]
         output = os.path.join(self.data, self.cohort,
-            filename[self.regexp.find('*'):].replace('/', '_')[:-4]+'.h5')
+                              filename[self.regexp.find('*'):].replace('/', '_')[:-4] + '.h5')
         if not os.path.exists(output) or self.overwrite:
             if filename[-3:] == 'fif':
                 eeg = mne.read_epochs(filename, preload=True)
@@ -64,7 +66,8 @@ class EEG(Dataset):
             eeg.pick_types(meg=False, eeg=True, eog=False)
             if not os.path.exists(os.path.dirname(output)):
                 os.makedirs(os.path.dirname(output))
-            out = eeg[:self.epochs].get_data()
+            out = Interpolate((self.resolution, self.resolution))(
+                eeg[:self.epochs])
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",
                                  data=out,

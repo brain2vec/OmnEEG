@@ -12,11 +12,11 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 [X] HDF5 export
 
-[ ] Integrate as a Transform operator in the Dataset class (see [this tutorial](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#transforms))
+[X] Integrate as a Transform operator in the Dataset class (see [this tutorial](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#transforms))
 
 ### 2D Interpolation
 
-[ ] Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448); see [this class](https://github.com/mne-tools/mne-python/blob/0ec28e9ad8e234ea51266644ae1ac35a2bc11f46/mne/viz/topomap.py#L629))
+[X] Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448); see [this class](https://github.com/mne-tools/mne-python/blob/0ec28e9ad8e234ea51266644ae1ac35a2bc11f46/mne/viz/topomap.py#L629))
 
 ### 3D Spherical harmonics
 

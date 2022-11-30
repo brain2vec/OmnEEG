@@ -1,5 +1,6 @@
-sfreq: 128  # sampling frequency in Hertz
-epochs: 10  # number of epochs to extract
-duration: 1  # duration of epochs in seconds
 data: "./data/"  # cohort .yaml files + HDF5 epochs
+sfreq: 128  # sampling frequency in Hertz
+duration: 1  # duration of epochs in seconds
+epochs: 10  # number of epochs to extract
+resolution: 32  # resolution of the brain2vec
 overwrite: True  # overwrite HDF5 epochs?

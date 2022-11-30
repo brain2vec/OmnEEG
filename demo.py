@@ -12,7 +12,6 @@
 # ==============================================================================
 
 from omneeg.io import EEG
-from mne.viz.topomap import plot_topomap
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from tqdm import trange
@@ -23,12 +22,26 @@ dataset2 = EEG(cohort='cohort2')
 dataset3 = EEG(cohort='cohort3')
 
 # Check the number of subjects and channels for each dataset
-epo1 = dataset1.__getitem__(0)
-print(f"1: N_participants={dataset1.__len__()} N_channels={epo1.shape[1]} Tensor shape: {epo1.shape}")
-epo2 = dataset2.__getitem__(0)
-print(f"2: N_participants={dataset2.__len__()} N_channels={epo2.shape[1]} Tensor shape: {epo2.shape}")
-epo3 = dataset3.__getitem__(0)
-print(f"3: N_participants={dataset3.__len__()} N_channels={epo3.shape[1]} Tensor shape: {epo3.shape}")
+samp1 = dataset1.__getitem__(0)
+print(f"1: N_participants={dataset1.__len__()} Tensor shape: {samp1.shape}")
+samp2 = dataset2.__getitem__(0)
+print(f"2: N_participants={dataset2.__len__()} Tensor shape: {samp2.shape}")
+samp3 = dataset3.__getitem__(0)
+print(f"3: N_participants={dataset3.__len__()} Tensor shape: {samp3.shape}")
+
+# Visualize the transformed data
+plt.figure(figsize=(10, 5))
+plt.subplot(1, 3, 1)
+vlim = np.abs(samp1).max()
+plt.imshow(samp1[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.subplot(1, 3, 2)
+vlim = np.abs(samp2).max()
+plt.imshow(samp2[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.subplot(1, 3, 3)
+vlim = np.abs(samp3).max()
+plt.imshow(samp3[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.show()
+plt.pause(1)
 
 # Simple use with PyTorch DataLoader
 dataloader = DataLoader(dataset1, batch_size=4,
