@@ -10,7 +10,7 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 [X] YAML config files (global + cohorts)
 
-[ ] HDF5 export
+[X] HDF5 export
 
 [ ] Integrate as a Transform operator in the Dataset class (see [this tutorial](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#transforms))
 

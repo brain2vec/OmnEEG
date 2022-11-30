@@ -30,18 +30,6 @@ print(f"2: N_participants={dataset2.__len__()} N_channels={epo2.shape[1]} Tensor
 epo3 = dataset3.__getitem__(0)
 print(f"3: N_participants={dataset3.__len__()} N_channels={epo3.shape[1]} Tensor shape: {epo3.shape}")
 
-# Visualization of the first sample of the first epoch in each dataset
-# Electrod positions are shown for illustrative purposes only
-plt.figure()
-ax1 = plt.subplot(1, 3, 1)
-im, _ = plot_topomap(epo1[0, :, 0], dataset1.info, sensors=True, contours=0, outlines=None, res=64, axes=ax1, show=False)
-ax2 = plt.subplot(1, 3, 2)
-im, _ = plot_topomap(epo2[0, :, 0], dataset2.info, sensors=True, contours=0, outlines=None, res=64, axes=ax2, show=False)
-ax3 = plt.subplot(1, 3, 3)
-im, _ = plot_topomap(epo3[0, :, 0], dataset3.info, sensors=True, contours=0, outlines=None, res=64, axes=ax3, show=False)
-plt.show()
-plt.pause(1)
-
 # Simple use with PyTorch DataLoader
 dataloader = DataLoader(dataset1, batch_size=4,
                         shuffle=False, drop_last=True, num_workers=0)
