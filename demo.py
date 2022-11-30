@@ -13,6 +13,7 @@
 
 from omneeg.io import EEG
 import matplotlib.pyplot as plt
+import numpy as np
 from torch.utils.data import DataLoader
 from tqdm import trange
 
@@ -30,16 +31,23 @@ samp3 = dataset3.__getitem__(0)
 print(f"3: N_participants={dataset3.__len__()} Tensor shape: {samp3.shape}")
 
 # Visualize the transformed data
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(20, 5))
 plt.subplot(1, 3, 1)
 vlim = np.abs(samp1).max()
 plt.imshow(samp1[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.colorbar()
+plt.title('Dataset 1')
 plt.subplot(1, 3, 2)
 vlim = np.abs(samp2).max()
 plt.imshow(samp2[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.colorbar()
+plt.title('Dataset 2')
 plt.subplot(1, 3, 3)
 vlim = np.abs(samp3).max()
 plt.imshow(samp3[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.colorbar()
+plt.title('Dataset 3')
+plt.tight_layout()
 plt.show()
 plt.pause(1)
 
