@@ -36,6 +36,8 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 [ ] Check Riemanian geometry approaches ([Sabbagh et al. 2020](https://denis-engemann.de/publication/sabbagh_generative_2019/))
 
+[ ] Check T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0)) and beyond (e.g., [GSTH](https://github.com/KrishnaswamyLab/GSTH))
+
 ### Visualization
 
 [ ] Train a model for ploting different representations (e.g., a "cubic brain") of the data based on the latent space.
