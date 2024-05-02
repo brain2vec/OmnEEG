@@ -34,7 +34,7 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 ### Pure statistical representation
 
-[ ] Check Riemanian geometry approaches ([Sabbagh et al. 2020](https://denis-engemann.de/publication/sabbagh_generative_2019/))
+[ ] Check Riemanian geometry approaches ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797))
 
 [ ] Check T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0)) and beyond (e.g., [GSTH](https://github.com/KrishnaswamyLab/GSTH))
 
