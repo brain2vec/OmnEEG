@@ -66,8 +66,15 @@ class EEG(Dataset):
             eeg.pick_types(meg=False, eeg=True, eog=False)
             if not os.path.exists(os.path.dirname(output)):
                 os.makedirs(os.path.dirname(output))
-            out = Interpolate((self.resolution, self.resolution))(
-                eeg[:self.epochs])
+                
+            # Don't slice epochs before passing to Interpolate
+            # Instead, use the full MNE object with info attribute intact
+            interpolator = Interpolate((self.resolution, self.resolution))
+            out = interpolator(eeg)
+            # If needed, slice after interpolation
+            if out.shape[0] > self.epochs:
+                out = out[:self.epochs]
+                
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",
                                  data=out,
