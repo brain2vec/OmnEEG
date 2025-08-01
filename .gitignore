@@ -1,7 +1,23 @@
 # Avoid to sync the data folder
 data/*
 
-# Byte-compiled / optimized / DLL files
+# Generated image files and test outputs
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.pdf
+
+# Test and validation files
+test_*.py
+validation_*.ipynb
+*_test.ipynb
+*_validation.ipynb
+
+# Development and temporary files
+.DS_Store
+.vscode/
 __pycache__/
 *.py[cod]
 *$py.class
