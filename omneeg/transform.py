@@ -5,7 +5,6 @@ import numpy as np
 
 
 class Interpolate(object):
-# TODO - Move on to Python3 and get rid of object inheritence
     """Interpolate a EEG to a matrix of pixels.
 
     Args:
