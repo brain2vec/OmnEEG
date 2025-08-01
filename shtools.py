@@ -2,8 +2,14 @@ import pandas as pd
 import numpy as np
 import pyshtools
 from scipy.spatial import distance
+import argparse
 
-sensors = pd.read_csv('EEG1005.tsv', sep='\t', header=0)
+parser = argparse.ArgumentParser(description="Spherical harmonics EEG tool")
+parser.add_argument('--sensor-file', type=str, default='EEG1005.tsv',
+                    help="Path to the EEG sensor TSV file (default: EEG1005.tsv)")
+args = parser.parse_args()
+
+sensors = pd.read_csv(args.sensor_file, sep='\t', header=0)
 sensors.name = sensors.name.str.lower()
 electrodes = ['FP1', 'FP2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2']
 
