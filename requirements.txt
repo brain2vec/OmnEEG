@@ -5,3 +5,4 @@ mne
 h5py
 pyyaml
 tqdm
+pyshtools
