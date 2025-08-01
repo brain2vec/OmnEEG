@@ -241,7 +241,7 @@ class SphericalHarmonics3D:
                 try:
                     reconstructed[i, j] = pyshtools.expand.MakeGridPoint(
                         coeffs, theta_grid[i], phi_grid[j])
-                except:
+                except Exception:
                     # Handle any reconstruction errors
                     reconstructed[i, j] = 0
         
