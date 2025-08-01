@@ -66,21 +66,28 @@ class SphericalHarmonics3D:
         
         # Compute spherical harmonics for each time point
         print(f"Computing spherical harmonics (lmax={self.lmax})...")
-        coefficients = []
         
-        for i in range(data.shape[1]):
-            values = data[:, i]
-            
-            # Compute spherical harmonic expansion
+        # Vectorized computation using np.apply_along_axis for efficiency
+        def compute_coeffs(values):
             coeffs = pyshtools.expand.SHExpandLSQ(values, theta_deg, phi_deg, self.lmax)
-            
-            # Handle tuple return from PyShTools
             if isinstance(coeffs, tuple):
                 coeffs = coeffs[0]
-            
-            coefficients.append(coeffs)
+            return coeffs
         
-        coefficients = np.array(coefficients)
+        # data shape: (n_channels, n_times), so apply along axis=0 for each time point
+        coefficients = np.apply_along_axis(compute_coeffs, 0, data)
+        
+        # Transpose to get the expected shape: (time_points, 2, lmax+1, lmax+1)
+        # The apply_along_axis changes the shape from (2, lmax+1, lmax+1, time_points) 
+        # to (time_points, 2, lmax+1, lmax+1)
+        n_time_points = data.shape[1]
+        expected_shape = (n_time_points, 2, self.lmax + 1, self.lmax + 1)
+        
+        # Move the last dimension (time_points) to the front: (2, lmax+1, lmax+1, time_points) -> (time_points, 2, lmax+1, lmax+1)
+        coefficients = np.transpose(coefficients, (3, 0, 1, 2))
+        
+        # Verify the shape is correct
+        assert coefficients.shape == expected_shape, f"Expected shape {expected_shape}, got {coefficients.shape}"
         
         result = {
             'coefficients': coefficients,
