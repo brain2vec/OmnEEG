@@ -260,7 +260,7 @@ class SphericalHarmonics3D:
             else:
                 colors = plt.cm.RdBu_r(np.ones_like(reconstructed) * 0.5)
             surf = ax3.plot_surface(X, Y, Z, facecolors=colors, alpha=0.8)
-        except:
+        except Exception:
             # Fallback to wireframe if surface plotting fails
             ax3.plot_wireframe(X, Y, Z, alpha=0.3, color='blue')
         
