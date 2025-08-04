@@ -347,12 +347,17 @@ if __name__ == "__main__":
     # Example usage
     print("3D Spherical Harmonics Test")
     
-    # Test with your EEG file
-    eeg_file = "data/TUEG/tuh_eeg/v2.0.0/edf/000/aaaaaaaa/s001_2015_12_30/01_tcp_ar/aaaaaaaa_s001_t000.edf"
+    # Test with your EEG file - MODIFY THIS PATH TO YOUR OWN DATA
+    eeg_file = "path/to/your/eeg/file.edf"  # Replace with your actual file path
     
     try:
         result, analyzer = analyze_eeg_3d(eeg_file, time_window=(100, 120))
         analyzer.visualize(result, output_path='harmonics_3d.png')
         print("Analysis completed successfully!")
     except Exception as e:
-        print(f"Error: {e}") 
+        print(f"Error: {e}")
+        print("Make sure the EEG file path is correct and the file exists.")
+        print("\nTo use this test:")
+        print("1. Replace 'path/to/your/eeg/file.edf' with your actual EEG file path")
+        print("2. Make sure your EEG file has standard 10-20 electrode names")
+        print("3. Run the script again") 
