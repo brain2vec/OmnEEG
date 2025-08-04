@@ -1,363 +1,455 @@
 #!/usr/bin/env python
-"""
-3D Spherical Harmonics for EEG
-Core functionality: convert EEG data to spherical harmonics
-"""
+# coding=utf-8
+# ==============================================================================
+# title           : transform_3d.py
+# description     : 3D EEG transformation combining interpolation and spherical harmonics
+# author          : Generated for OmnEEG
+# date            : 2025-01-27
+# version         : 1
+# usage           : from omneeg.transform_3d import EEG3DTransform
+# notes           : Combines interpolation and spherical harmonics for 3D EEG analysis
+# python_version  : 3.9
+# ==============================================================================
 
-import numpy as np
 import mne
+from mne.channels.layout import _find_topomap_coords
+from mne.viz.topomap import _adjust_meg_sphere, _GridData
+import numpy as np
 import pyshtools
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from typing import Union, List, Tuple, Dict, Optional
+import warnings
+from pathlib import Path
+import re
+
+from spherical_harmonics import SphericalHarmonicAnalyzer
 
 
-class SphericalHarmonics3D:
+class EEG3DTransform:
     """
-    3D spherical harmonic analysis for EEG data.
-    Takes EEG data with montage and generates spherical harmonics.
+    3D EEG transformation combining interpolation and spherical harmonics analysis.
     """
     
-    def __init__(self, lmax=8):
+    def __init__(self, output_size: Union[int, Tuple[int, int]] = (64, 64),
+                 lmax: int = 16, normalize_radius: bool = True):
         """
-        Initialize analyzer.
+        Initialize the 3D EEG transformer.
         
         Parameters:
         -----------
+        output_size : int or tuple
+            Size of interpolated output grid (width, height)
         lmax : int
             Maximum spherical harmonic degree
+        normalize_radius : bool
+            Whether to normalize electrode positions to unit sphere
         """
-        self.lmax = lmax
-    
-    def analyze(self, eeg_data, time_window=None):
-        """
-        Analyze EEG data and convert to spherical harmonics.
-        
-        Parameters:
-        -----------
-        eeg_data : mne.io.Raw or mne.Epochs
-            EEG data with montage set
-        time_window : tuple, optional
-            Time window (start, stop) in seconds
-            
-        Returns:
-        --------
-        dict
-            Analysis results with coefficients and metadata
-        """
-        # Get EEG channels
-        eeg_picks = mne.pick_types(eeg_data.info, meg=False, eeg=True, exclude='bads')
-        eeg_data.pick(eeg_picks)
-        
-        # Extract data
-        if time_window is not None:
-            start_time, stop_time = time_window
-            data, times = eeg_data.get_data(start=start_time, stop=stop_time, return_times=True)
+        # Handle output_size properly
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
         else:
-            data, times = eeg_data.get_data(return_times=True)
+            self.output_size = output_size
+            
+        self.lmax = lmax
+        self.normalize_radius = normalize_radius
         
-        channel_names = eeg_data.ch_names
-        print(f"Analyzing {len(channel_names)} channels: {channel_names}")
+        # Initialize the spherical harmonic analyzer
+        self.sha = SphericalHarmonicAnalyzer(lmax=lmax, normalize_radius=normalize_radius)
         
-        # Get electrode positions from montage
-        positions = self._get_electrode_positions(eeg_data)
+        # Initialize interpolation parameters
+        self.interpolator = None
         
-        # Convert positions to spherical coordinates
-        theta_deg, phi_deg = self._cartesian_to_spherical(positions)
+    def _setup_interpolator(self, eeg_data):
+        """Set up the interpolator for 2D grid interpolation."""
+        sphere, clip_origin = _adjust_meg_sphere(sphere=None, info=eeg_data.info, ch_type='eeg')
+        x, y, _, radius = sphere
+        picks = mne.pick_types(eeg_data.info, meg=False, eeg=True, ref_meg=False, exclude='bads')
+        pos = _find_topomap_coords(eeg_data.info, picks, sphere=sphere)
         
-        # Compute spherical harmonics for each time point
-        print(f"Computing spherical harmonics (lmax={self.lmax})...")
+        mask_scale = max(1.0, np.linalg.norm(pos, axis=1).max() * 1.01 / radius)
+        clip_radius = (radius * mask_scale,) * 2
         
-        # Vectorized computation using np.apply_along_axis for efficiency
-        def compute_coeffs(values):
-            coeffs = pyshtools.expand.SHExpandLSQ(values, theta_deg, phi_deg, self.lmax)
-            if isinstance(coeffs, tuple):
-                coeffs = coeffs[0]
-            return coeffs
+        xmin, xmax = clip_origin[0] - clip_radius[0], clip_origin[0] + clip_radius[0]
+        ymin, ymax = clip_origin[1] - clip_radius[1], clip_origin[1] + clip_radius[1]
         
-        # data shape: (n_channels, n_times), so apply along axis=0 for each time point
-        coefficients = np.apply_along_axis(compute_coeffs, 0, data)
+        xi = np.linspace(xmin, xmax, self.output_size[0])
+        yi = np.linspace(ymin, ymax, self.output_size[1])
+        Xi, Yi = np.meshgrid(xi, yi)
         
-        # Transpose to get the expected shape: (time_points, 2, lmax+1, lmax+1)
-        # The apply_along_axis changes the shape from (2, lmax+1, lmax+1, time_points) 
-        # to (time_points, 2, lmax+1, lmax+1)
-        n_time_points = data.shape[1]
-        expected_shape = (n_time_points, 2, self.lmax + 1, self.lmax + 1)
+        image_interp = 'cubic'
+        extrapolate = 'box'
+        border = 'mean'
         
-        # Move the last dimension (time_points) to the front: (2, lmax+1, lmax+1, time_points) -> (time_points, 2, lmax+1, lmax+1)
-        coefficients = np.transpose(coefficients, (3, 0, 1, 2))
+        interp = _GridData(pos, image_interp, extrapolate, clip_origin, clip_radius, border)
         
-        # Verify the shape is correct
-        assert coefficients.shape == expected_shape, f"Expected shape {expected_shape}, got {coefficients.shape}"
-        
-        result = {
-            'coefficients': coefficients,
-            'times': times,
-            'electrodes': channel_names,
-            'positions': positions,
-            'lmax': self.lmax,
-            'theta': theta_deg,
-            'phi': phi_deg
+        self.interpolator = {
+            'interp': interp,
+            'Xi': Xi,
+            'Yi': Yi,
+            'pos': pos,
+            'extent': (xmin, xmax, ymin, ymax),
+            'sphere': sphere,
+            'clip_origin': clip_origin
         }
         
-        print(f"Analysis complete! Coefficients shape: {coefficients.shape}")
-        return result
-    
-    def _get_electrode_positions(self, eeg_data):
-        """Get electrode positions from MNE data with montage."""
-        # Get positions from the montage
-        montage = eeg_data.get_montage()
-        if montage is None:
-            raise ValueError("No montage found. Please set a montage first.")
-        
-        positions = []
-        valid_channels = []
-        
-        for ch_name in eeg_data.ch_names:
-            # Get position for this channel
-            pos = montage.get_positions()
-            if 'ch_pos' in pos and ch_name in pos['ch_pos']:
-                positions.append(pos['ch_pos'][ch_name])
-                valid_channels.append(ch_name)
-            else:
-                # Skip channels without positions (non-EEG channels)
-                print(f"Skipping {ch_name} - no position found")
-        
-        if len(positions) == 0:
-            raise ValueError("No EEG channels with valid positions found")
-        
-        # Update the data to only include valid channels
-        eeg_data.pick(valid_channels)
-        
-        return np.array(positions)
-    
-    def _cartesian_to_spherical(self, positions):
+    def interpolate_2d(self, eeg_data: Union['mne.io.Raw', 'mne.Epochs']) -> np.ndarray:
         """
-        Convert Cartesian positions to spherical coordinates.
+        Interpolate EEG data to a 2D regular grid.
         
         Returns:
         --------
-        tuple
-            (theta_deg, phi_deg) where theta is colatitude (0-180°) and phi is longitude (-180 to 180°)
+        np.ndarray
+            Interpolated data of shape (epochs, height, width, timepoints)
         """
-        theta_deg = []
-        phi_deg = []
-        
-        for pos in positions:
-            x, y, z = pos
+        if self.interpolator is None:
+            self._setup_interpolator(eeg_data)
             
-            # Convert to spherical coordinates
-            r = np.sqrt(x**2 + y**2 + z**2)
-            if r > 0:
-                # Colatitude (0 to 180°)
-                theta = np.arccos(z / r)
-                # Longitude (-180 to 180°)
-                phi = np.arctan2(y, x)
-            else:
-                theta = 0
-                phi = 0
-            
-            theta_deg.append(np.degrees(theta))
-            phi_deg.append(np.degrees(phi))
+        data = eeg_data.get_data()
         
-        return np.array(theta_deg), np.array(phi_deg)
+        # Handle both Raw (2D) and Epochs (3D)
+        if data.ndim == 2:
+            # (n_channels, n_times) -> (1, n_channels, n_times)
+            data = data[None, ...]
+        n_epochs, n_channels, n_times = data.shape
+        Z = np.zeros((n_epochs, self.output_size[0], self.output_size[1], n_times))
+        
+        for epoch in range(n_epochs):
+            for time in range(n_times):
+                self.interpolator['interp'].set_values(data[epoch, :, time])
+                Zi = self.interpolator['interp'].set_locations(
+                    self.interpolator['Xi'], self.interpolator['Yi'])()
+                Z[epoch, :, :, time] = Zi
+        return Z
     
-    def visualize(self, result, time_point=0, output_path=None):
+    def transform_3d(self, eeg_data: Union['mne.io.Raw', 'mne.Epochs'],
+                     time_window: Optional[Tuple[float, float]] = None,
+                     channel_subset: Optional[List[str]] = None,
+                     subsample_factor: int = 1,
+                     skip_interpolation: bool = False) -> Dict:
         """
-        Simple visualization of spherical harmonic results.
+        Perform comprehensive 3D transformation combining interpolation and spherical harmonics.
         
-        Parameters:
-        -----------
-        result : dict
-            Analysis results from analyze() method
-        time_point : int
-            Which time point to visualize
-        output_path : str, optional
-            Path to save the figure
+        Returns:
+        --------
+        Dict
+            Dictionary containing both 2D interpolated data and spherical harmonic results
         """
-        fig = plt.figure(figsize=(15, 5))
+        print("Performing 3D EEG transformation...")
         
-        # Extract data
-        coeffs = result['coefficients'][time_point]
-        positions = result['positions']
-        electrodes = result['electrodes']
-        times = result['times']
+        # 1. 2D interpolation (optional)
+        interpolated_2d = None
+        if not skip_interpolation:
+            try:
+                print("Step 1: Performing 2D interpolation...")
+                interpolated_2d = self.interpolate_2d(eeg_data)
+            except Exception as e:
+                print(f"Warning: 2D interpolation failed: {e}")
+                print("Continuing with spherical harmonics only...")
+                skip_interpolation = True
         
-        # 1. Original sensor data
-        ax1 = fig.add_subplot(1, 3, 1, projection='3d')
+        # 2. Spherical harmonics analysis
+        print("Step 2: Performing spherical harmonics analysis...")
+        sh_results = self.sha.analyze(
+            eeg_data, time_window, channel_subset, subsample_factor
+        )
+        
+        # 3. Combine results
+        result = {
+            'interpolated_2d': interpolated_2d,
+            'spherical_harmonics': sh_results,
+            'output_size': self.output_size,
+            'lmax': self.lmax,
+            'interpolator_info': self.interpolator,
+            'interpolation_successful': not skip_interpolation
+        }
+        
+        print("3D transformation complete!")
+        if interpolated_2d is not None:
+            print(f"2D interpolation shape: {interpolated_2d.shape}")
+        print(f"Spherical harmonics coefficients shape: {sh_results['coefficients'].shape}")
+        
+        return result
+    
+    def reconstruct_3d(self, result: Dict, time_point: int = 0,
+                      n_harmonics: Optional[int] = None) -> np.ndarray:
+        """
+        Reconstruct 3D field from spherical harmonics.
+        
+        Returns:
+        --------
+        np.ndarray
+            3D reconstructed field
+        """
+        sh_results = result['spherical_harmonics']
+        coeffs = sh_results['coefficients'][time_point]
+        
+        if n_harmonics is not None:
+            # Truncate coefficients
+            coeffs_truncated = np.zeros_like(coeffs)
+            coeffs_truncated[:, :n_harmonics+1, :n_harmonics+1] = coeffs[:, :n_harmonics+1, :n_harmonics+1]
+            coeffs = coeffs_truncated
+        
+        # Create 3D grid
+        n_grid = 50
+        theta_grid = np.linspace(0, 180, n_grid)
+        phi_grid = np.linspace(-180, 180, n_grid)
+        r_grid = np.linspace(0.8, 1.2, 10)  # Multiple radial shells
+        
+        THETA, PHI, R = np.meshgrid(theta_grid, phi_grid, r_grid, indexing='ij')
+        
+        # Reconstruct field at each point
+        reconstructed_3d = np.zeros_like(THETA)
+        
+        for i in range(n_grid):
+            for j in range(n_grid):
+                for k in range(len(r_grid)):
+                    reconstructed_3d[i, j, k] = pyshtools.expand.MakeGridPoint(
+                        coeffs, theta_grid[i], phi_grid[j]
+                    )
+        
+        return reconstructed_3d, THETA, PHI, R
+    
+    def visualize_3d(self, result: Dict, time_point: int = 0,
+                     output_path: Optional[str] = None) -> None:
+        """
+        Visualize the 3D transformation results.
+        """
+        # Determine number of subplots based on available data
+        has_interpolation = result.get('interpolated_2d') is not None
+        
+        if has_interpolation:
+            fig = plt.figure(figsize=(15, 10))
+            plot_idx = 1
+        else:
+            fig = plt.figure(figsize=(12, 8))
+            plot_idx = 1
+        
+        # 1. 2D interpolation (if available)
+        if has_interpolation:
+            ax1 = fig.add_subplot(2, 3, plot_idx)
+            interpolated_2d = result['interpolated_2d']
+            im = ax1.imshow(interpolated_2d[0, :, :, time_point], 
+                           cmap='RdBu_r', aspect='equal', origin='lower')
+            ax1.set_title(f'2D Interpolation\nTime: {time_point}')
+            plt.colorbar(im, ax=ax1)
+            plot_idx += 1
+        else:
+            # Add a placeholder
+            ax1 = fig.add_subplot(2, 3, plot_idx)
+            ax1.text(0.5, 0.5, '2D Interpolation\nNot Available', 
+                    ha='center', va='center', transform=ax1.transAxes)
+            ax1.set_title('2D Interpolation')
+            plot_idx += 1
+        
+        # 2. Original sensor data
+        ax2 = fig.add_subplot(2, 3, plot_idx, projection='3d')
+        sh_results = result['spherical_harmonics']
+        positions = sh_results['positions']
+        coeffs = sh_results['coefficients'][time_point]
         
         # Get original values at sensor positions
-        theta_deg = result['theta']
-        phi_deg = result['phi']
+        theta_deg = sh_results['theta']
+        phi_deg = sh_results['phi']
         original_values = []
         for i in range(len(theta_deg)):
             val = pyshtools.expand.MakeGridPoint(coeffs, theta_deg[i], phi_deg[i])
             original_values.append(val)
         original_values = np.array(original_values)
         
-        # Plot sensor positions colored by values
-        scatter = ax1.scatter(positions[:, 0], positions[:, 1], positions[:, 2], 
+        scatter = ax2.scatter(positions[:, 0], positions[:, 1], positions[:, 2],
                             c=original_values, s=100, cmap='RdBu_r')
+        ax2.set_title('Original Sensor Data')
+        plt.colorbar(scatter, ax=ax2)
+        plot_idx += 1
         
-        # Add electrode labels
-        for i, (pos, label) in enumerate(zip(positions, electrodes)):
-            ax1.text(pos[0]*1.1, pos[1]*1.1, pos[2]*1.1, label, fontsize=8)
+        # 3. 3D spherical reconstruction
+        ax3 = fig.add_subplot(2, 3, plot_idx, projection='3d')
         
-        ax1.set_title(f'Sensor Data (t={times[time_point]:.2f}s)')
-        ax1.set_xlabel('X')
-        ax1.set_ylabel('Y')
-        ax1.set_zlabel('Z')
-        plt.colorbar(scatter, ax=ax1, shrink=0.5)
+        # Create sphere surface
+        u = np.linspace(0, 2 * np.pi, 50)
+        v = np.linspace(0, np.pi, 50)
+        sphere_x = np.outer(np.cos(u), np.sin(v))
+        sphere_y = np.outer(np.sin(u), np.sin(v))
+        sphere_z = np.outer(np.ones(np.size(u)), np.cos(v))
         
-        # 2. Harmonic power spectrum
-        ax2 = fig.add_subplot(1, 3, 2)
+        # Reconstruct field on sphere surface
+        reconstructed_surface = np.zeros_like(sphere_x)
+        for i in range(50):
+            for j in range(50):
+                theta = np.degrees(np.arccos(sphere_z[i, j]))
+                phi = np.degrees(np.arctan2(sphere_y[i, j], sphere_x[i, j]))
+                reconstructed_surface[i, j] = pyshtools.expand.MakeGridPoint(
+                    coeffs, theta, phi
+                )
         
-        # Calculate power by degree (with overflow protection)
+        # Plot surface with color mapping
+        surf = ax3.plot_surface(sphere_x, sphere_y, sphere_z, 
+                               facecolors=plt.cm.RdBu_r(
+                                   (reconstructed_surface - reconstructed_surface.min()) / 
+                                   (reconstructed_surface.max() - reconstructed_surface.min())
+                               ),
+                               alpha=0.8)
+        ax3.set_title('3D Spherical Reconstruction')
+        # Rotate 90 degrees counterclockwise around vertical axis to align with head orientation
+        ax3.view_init(elev=20, azim=90)
+        plot_idx += 1
+        
+        # 4. Harmonic power spectrum
+        ax4 = fig.add_subplot(2, 3, plot_idx)
         power_by_degree = []
         degrees = []
-        for l in range(self.lmax + 1):
+        for l in range(sh_results['lmax'] + 1):
             power = 0
             for m in range(-l, l + 1):
                 m_idx = abs(m)
                 if m >= 0:
-                    # Use abs() to prevent overflow
-                    power += abs(coeffs[0, l, m_idx])
+                    power += coeffs[0, l, m_idx]**2
                 else:
-                    power += abs(coeffs[1, l, m_idx])
-            power_by_degree.append(power)
+                    power += coeffs[1, l, m_idx]**2
+            power_by_degree.append(np.sqrt(power))
             degrees.append(l)
         
-        ax2.bar(degrees, power_by_degree, alpha=0.7, color='steelblue')
-        ax2.set_xlabel('Harmonic Degree (l)')
-        ax2.set_ylabel('Power')
-        ax2.set_title('Harmonic Power Spectrum')
-        ax2.grid(True, alpha=0.3)
+        ax4.bar(degrees, power_by_degree, alpha=0.7, color='steelblue')
+        ax4.set_xlabel('Spherical Harmonic Degree (l)')
+        ax4.set_ylabel('Power')
+        ax4.set_title('Harmonic Power Spectrum')
+        ax4.grid(True, alpha=0.3)
+        plot_idx += 1
         
-        # 3. Reconstructed field on sphere
-        ax3 = fig.add_subplot(1, 3, 3, projection='3d')
-        
-        # Create high-resolution grid
-        n_grid = 50
-        theta_grid = np.linspace(0, 180, n_grid)
-        phi_grid = np.linspace(-180, 180, n_grid)
-        THETA, PHI = np.meshgrid(theta_grid, phi_grid)
-        
-        # Reconstruct field
-        reconstructed = np.zeros_like(THETA)
-        for i in range(n_grid):
-            for j in range(n_grid):
-                try:
-                    reconstructed[i, j] = pyshtools.expand.MakeGridPoint(
-                        coeffs, theta_grid[i], phi_grid[j])
-                except Exception:
-                    # Handle any reconstruction errors
-                    reconstructed[i, j] = 0
-        
-        # Convert to Cartesian for 3D plotting
-        theta_rad = np.radians(THETA)
-        phi_rad = np.radians(PHI)
-        X = np.sin(theta_rad) * np.cos(phi_rad)
-        Y = np.sin(theta_rad) * np.sin(phi_rad)
-        Z = np.cos(theta_rad)
-        
-        # Plot surface with error handling
-        try:
-            vmin, vmax = reconstructed.min(), reconstructed.max()
-            if vmax != vmin:
-                colors = plt.cm.RdBu_r((reconstructed - vmin) / (vmax - vmin))
-            else:
-                colors = plt.cm.RdBu_r(np.ones_like(reconstructed) * 0.5)
-            surf = ax3.plot_surface(X, Y, Z, facecolors=colors, alpha=0.8)
-        except Exception:
-            # Fallback to wireframe if surface plotting fails
-            ax3.plot_wireframe(X, Y, Z, alpha=0.3, color='blue')
-        
-        # Add sensor positions
-        ax3.scatter(positions[:, 0], positions[:, 1], positions[:, 2], 
-                   c='black', s=30, alpha=1.0)
-        
-        ax3.set_title('Reconstructed Field')
-        ax3.set_xlabel('X')
-        ax3.set_ylabel('Y')
-        ax3.set_zlabel('Z')
+        # 5. Cross-section comparison (only if interpolation available)
+        if has_interpolation:
+            ax5 = fig.add_subplot(2, 3, plot_idx)
+            center_line_2d = interpolated_2d[0, :, interpolated_2d.shape[2]//2, time_point]
+            theta_line = np.linspace(0, 180, len(center_line_2d))
+            phi_line = np.full_like(theta_line, 0)
+            spherical_line = []
+            for theta, phi in zip(theta_line, phi_line):
+                val = pyshtools.expand.MakeGridPoint(coeffs, theta, phi)
+                spherical_line.append(val)
+            spherical_line = np.array(spherical_line)
+            
+            ax5.plot(center_line_2d, label='2D Interpolation', linewidth=2)
+            ax5.plot(spherical_line, label='Spherical Harmonics', linewidth=2)
+            ax5.set_xlabel('Position')
+            ax5.set_ylabel('Amplitude')
+            ax5.set_title('2D vs Spherical Comparison')
+            ax5.legend()
+            ax5.grid(True, alpha=0.3)
+        else:
+            # Add electrode positions plot instead
+            ax5 = fig.add_subplot(2, 3, plot_idx)
+            ax5.scatter(positions[:, 0], positions[:, 1], c=original_values, 
+                       s=100, cmap='RdBu_r')
+            ax5.set_xlabel('X')
+            ax5.set_ylabel('Y')
+            ax5.set_title('Electrode Positions (2D)')
+            plt.colorbar(ax5.scatter(positions[:, 0], positions[:, 1], c=original_values, 
+                                   s=100, cmap='RdBu_r'), ax=ax5)
         
         plt.tight_layout()
         
         if output_path:
+            # Create directory if it doesn't exist
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             plt.savefig(output_path, dpi=300, bbox_inches='tight')
-            print(f"Visualization saved to {output_path}")
+            print(f"3D visualization saved to {output_path}")
         else:
             plt.show()
 
 
-def analyze_eeg_3d(file_path, time_window=(10, 20), lmax=8):
+# Convenience function
+def transform_eeg_3d(eeg_data: Union['mne.io.Raw', 'mne.Epochs'],
+                     output_size: Union[int, Tuple[int, int]] = (64, 64),
+                     lmax: int = 16,
+                     time_window: Optional[Tuple[float, float]] = None,
+                     channel_subset: Optional[List[str]] = None,
+                     subsample_factor: int = 1,
+                     visualize: bool = True,
+                     output_path: Optional[str] = None,
+                     skip_interpolation: bool = False) -> Dict:
     """
-    Analyze EEG file and generate spherical harmonics.
-    
-    Parameters:
-    -----------
-    file_path : str
-        Path to EEG file
-    time_window : tuple
-        Time window to analyze
-    lmax : int
-        Maximum harmonic degree
-        
-    Returns:
-    --------
-    dict
-        Analysis results
+    Convenience function for performing 3D EEG transformation.
     """
-    # Load EEG data
-    if file_path.endswith('.edf'):
-        raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
-    elif file_path.endswith('.fif'):
-        raw = mne.io.read_raw_fif(file_path, preload=True, verbose=False)
-    else:
-        raise ValueError(f"Unsupported file format: {file_path}")
+    transformer = EEG3DTransform(output_size=output_size, lmax=lmax)
+    result = transformer.transform_3d(eeg_data, time_window, channel_subset, subsample_factor, skip_interpolation)
     
-    # Rename channels to match standard montage
-    print("Renaming channels to match standard montage...")
-    channel_mapping = {}
-    for ch_name in raw.ch_names:
-        if ch_name.startswith('EEG ') and ch_name.endswith('-REF'):
-            # Extract electrode name from "EEG FP1-REF" -> "FP1"
-            electrode_name = ch_name[4:-4]  # Remove "EEG " and "-REF"
-            channel_mapping[ch_name] = electrode_name
-        elif ch_name.endswith('-REF'):
-            # Extract electrode name from "FP1-REF" -> "FP1"
-            electrode_name = ch_name[:-4]
-            channel_mapping[ch_name] = electrode_name
+    if visualize:
+        transformer.visualize_3d(result, output_path=output_path)
     
-    if channel_mapping:
-        raw.rename_channels(channel_mapping)
-        print(f"Renamed {len(channel_mapping)} channels")
-    
-    # Set standard montage
-    montage = mne.channels.make_standard_montage('standard_1020')
-    raw.set_montage(montage, on_missing='warn')
-    
-    # Create analyzer and analyze
-    analyzer = SphericalHarmonics3D(lmax=lmax)
-    result = analyzer.analyze(raw, time_window=time_window)
-    
-    return result, analyzer
+    return result
 
 
 if __name__ == "__main__":
-    # Example usage
-    print("3D Spherical Harmonics Test")
+    # Example usage with real TUEG data
+    print("Testing 3D EEG transformation with TUEG data...")
     
-    # Test with your EEG file - MODIFY THIS PATH TO YOUR OWN DATA
-    eeg_file = "path/to/your/eeg/file.edf"  # Replace with your actual file path
+    # Use actual TUEG data
+    tueg_file = "../data/TUEG/tuh_eeg/v2.0.0/edf/000/aaaaaaac/s003_2002_12_26/02_tcp_le/aaaaaaac_s003_t000.edf"
     
     try:
-        result, analyzer = analyze_eeg_3d(eeg_file, time_window=(100, 120))
-        analyzer.visualize(result, output_path='harmonics_3d.png')
-        print("Analysis completed successfully!")
+        # Load the TUEG EDF file
+        print(f"Loading TUEG data from: {tueg_file}")
+        raw = mne.io.read_raw_edf(tueg_file, preload=True, verbose=False)
+        
+        # Pick only EEG channels
+        eeg_picks = mne.pick_types(raw.info, meg=False, eeg=True, exclude='bads')
+        raw.pick(eeg_picks)
+        
+        print(f"Loaded {len(raw.ch_names)} EEG channels")
+        print(f"Data duration: {raw.times[-1]:.2f} seconds")
+        print(f"Sampling rate: {raw.info['sfreq']} Hz")
+        
+        # Add standard electrode positions if missing
+        if raw.info['dig'] is None:
+            print("Adding standard electrode positions...")
+            montage = mne.channels.make_standard_montage('standard_1020')
+            raw.set_montage(montage)
+        
+        # Perform 3D transformation on a time window
+        result = transform_eeg_3d(
+            raw,
+            output_size=(64, 64),
+            lmax=12,
+            time_window=(10, 30),  # 20 seconds of data
+            subsample_factor=10,   # Sample every 10th time point for speed
+            visualize=True,
+            output_path="results/tueg_3d_transform.png"
+        )
+        
+        print("3D transformation test complete!")
+        
     except Exception as e:
-        print(f"Error: {e}")
-        print("Make sure the EEG file path is correct and the file exists.")
-        print("\nTo use this test:")
-        print("1. Replace 'path/to/your/eeg/file.edf' with your actual EEG file path")
-        print("2. Make sure your EEG file has standard 10-20 electrode names")
-        print("3. Run the script again") 
+        print(f"Error with TUEG data: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Fallback to synthetic data if TUEG fails
+        print("Falling back to synthetic data...")
+        
+        # Create test data with proper electrode positions
+        n_channels = 10
+        n_timepoints = 100
+        test_data = np.random.randn(n_channels, n_timepoints)
+        
+        # Create MNE Raw object with standard electrode positions
+        ch_names = ['Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 'P3', 'P4', 'O1', 'O2']
+        ch_types = ['eeg'] * n_channels
+        info = mne.create_info(ch_names, sfreq=100, ch_types=ch_types)
+        
+        # Add standard electrode positions
+        montage = mne.channels.make_standard_montage('standard_1020')
+        info.set_montage(montage)
+        
+        raw = mne.io.RawArray(test_data, info)
+        
+        # Perform 3D transformation
+        result = transform_eeg_3d(
+            raw,
+            output_size=(32, 32),
+            lmax=8,
+            visualize=True,
+            output_path="results/test_3d_transform.png"
+        )
+        
+        print("Synthetic data 3D transformation test complete!") 

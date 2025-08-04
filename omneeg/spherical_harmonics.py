@@ -171,6 +171,8 @@ class SphericalHarmonicAnalyzer:
         ax2 = fig.add_subplot(1, n_subplots, 2, projection='3d')
         surf = ax2.plot_surface(X, Y, Z, facecolors=plt.cm.RdBu_r((field-field.min())/(np.ptp(field) or 1)), alpha=0.8, linewidth=0)
         ax2.set_title('Reconstructed Field')
+        # Rotate 90 degrees counterclockwise around vertical axis to align with head orientation
+        ax2.view_init(elev=20, azim=20)
         # Add sensor positions as black dots on the surface
         ax2.scatter(xyz[:,0], xyz[:,1], xyz[:,2], c='black', s=30, alpha=0.8, edgecolors='white', linewidth=0.5)
         # Individual harmonics
