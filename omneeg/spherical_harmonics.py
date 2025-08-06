@@ -3,12 +3,12 @@
 # ==============================================================================
 # title           : spherical_harmonics.py
 # description     : General spherical harmonic analysis for EEG data
-# author          : Generated for OmnEEG
-# date            : 2025-05-27
+# author          : Mahtaao
+# date            : 2025-08
 # version         : 1
 # usage           : from omneeg.spherical_harmonics import SphericalHarmonicAnalyzer
 # notes           : Works with various data formats and channel naming conventions
-# python_version  : 3.9
+# python_version  : 3.10.17
 # ==============================================================================
 
 import pandas as pd
@@ -104,6 +104,13 @@ class SphericalHarmonicAnalyzer:
     def analyze(self, data_source: Union[str, np.ndarray], channels: Optional[List[str]] = None, time_window: Optional[Tuple[float, float]] = None):
         """
         Compute spherical harmonics for EEG data. Returns dict with coefficients, positions, etc.
+        Returns a dictionary containing:
+            - coefficients: Spherical harmonic coefficients for each time point
+            - positions: 3D electrode positions for visualization and validation
+            - ch_names: Channel names to map coefficients to electrodes
+            - theta/phi: Angular coordinates for field reconstruction
+            - times: Time points for temporal analysis
+            - lmax: Maximum harmonic degree used
         """
         data, ch_names, times, positions = self.load_data(data_source, channels, time_window)
         # Convert positions to spherical (theta: colatitude, phi: longitude)
@@ -119,6 +126,7 @@ class SphericalHarmonicAnalyzer:
             c = pyshtools.expand.SHExpandLSQ(vals, theta_deg, phi_deg, self.lmax)[0]
             coeffs.append(c)
         coeffs = np.stack(coeffs)  # (time, 2, lmax+1, lmax+1)
+
         return dict(coefficients=coeffs, positions=positions, ch_names=ch_names, theta=theta_deg, phi=phi_deg, times=times, lmax=self.lmax)
 
     def visualize(self, result: dict, time_point: int = 0, show_harmonics_up_to: int = 3):
@@ -193,132 +201,77 @@ class SphericalHarmonicAnalyzer:
             axl.set_ylabel('Colatitude (°)')
         plt.tight_layout()
         plt.show()
+  
+
+def compare_reconstruction(result: dict, original: np.ndarray, sensor_idx: int = None):
+    """Compare reconstructed harmonics against original data at a sensor point."""
+    if sensor_idx is None:
+        sensor_idx = np.argmax(result['positions'][:, 2])  # Top sensor
+    
+    pos = result['positions'][sensor_idx]
+    theta = np.degrees(np.arccos(pos[2] / np.linalg.norm(pos)))
+    phi = np.degrees(np.arctan2(pos[1], pos[0]))
+    
+    reconstructed = [pyshtools.expand.MakeGridPoint(coeffs, theta, phi) 
+                    for coeffs in result['coefficients']]
+    
+    plt.figure(figsize=(10, 4))
+    plt.plot(result['times'], original[sensor_idx], 'b-', label='Original', alpha=0.7)
+    plt.plot(result['times'], reconstructed, 'r-', label='Reconstructed')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Amplitude')
+    plt.title(f'Signal at {result["ch_names"][sensor_idx]}')
+    plt.legend()
+    plt.show()
+    
+    return reconstructed
 
 if __name__ == "__main__":
     # Example usage with comprehensive visualization
     print("Testing spherical harmonic analysis with visualization...")
     
     # Test with the EDF file
-    edf_path = 'data/TUEG/tuh_eeg/v2.0.0/edf/000/aaaaaaaa/s001_2015_12_30/01_tcp_ar/aaaaaaaa_s001_t000.edf'
+    edf_path = 'path/to/your/eeg/file.edf'  # Replace with your file path
     
-    try:
-        # Create analyzer
-        analyzer = SphericalHarmonicAnalyzer(lmax=8)  # Reduced lmax for faster computation
-        
-        print("Analyzing EDF file with all available EEG channels...")
-        result = analyzer.analyze(
-            edf_path, 
-            time_window=(100, 120)  # Longer time window for better visualization
-        )
-        
-        print(f"Analysis complete!")
-        print(f"Electrodes analyzed: {result['ch_names']}")
-        print(f"Coefficients shape: {result['coefficients'].shape}")
-        print(f"Time points: {len(result['times'])}")
-        
-        # Generate comprehensive visualizations
-        print("\nGenerating visualizations...")
-        
-        # 1. Main transformation visualization
-        print("Creating transformation visualization...")
-        analyzer.visualize(
-            result, 
-            time_point=0, 
-            show_harmonics_up_to=3
-        )
-        
-        # 2. Time evolution plots
-        if len(result['times']) > 1:
-            print("Creating harmonic evolution plots...")
-            analyzer.visualize(
-                result,
-                time_point=0,
-                show_harmonics_up_to=3
-            )
-        
-        print("\nAll visualizations complete! Check the generated plot.")
-        
-    except Exception as e:
-        print(f"Error during analysis: {e}")
-        import traceback
-        traceback.print_exc()
-        
-        # Fallback test with artificial data
-        print("\nTesting with artificial data...")
-        
-        # Create realistic artificial EEG data
-        n_electrodes = 10
-        n_timepoints = 500
-        time_vec = np.linspace(0, 2, n_timepoints)  # 2 seconds
-        
-        # Simulate EEG with some spatial and temporal structure
-        artificial_data = np.zeros((n_electrodes, n_timepoints))
-        
-        # Add some oscillations with spatial patterns
-        for i in range(n_electrodes):
-            # Different frequencies for different "electrodes"
-            freq1 = 8 + i * 0.5  # Alpha-like frequencies
-            freq2 = 15 + i * 0.3  # Beta-like frequencies
-            
-            # Spatial amplitude modulation
-            amp_mod = np.cos(i * np.pi / n_electrodes)
-            
-            artificial_data[i, :] = (
-                amp_mod * np.sin(2 * np.pi * freq1 * time_vec) +
-                0.5 * amp_mod * np.sin(2 * np.pi * freq2 * time_vec) +
-                0.1 * np.random.randn(n_timepoints)  # Add some noise
-            )
-        
-        # Analyze artificial data
-        analyzer = SphericalHarmonicAnalyzer(lmax=6)
-        result = analyzer.analyze(artificial_data)
-        
-        print(f"Artificial data analysis complete!")
-        print(f"Coefficients shape: {result['coefficients'].shape}")
-        
-        # Generate visualizations for artificial data
-        analyzer.visualize(
-            result, 
-            time_point=0, 
-            show_harmonics_up_to=3
-        )
-        
-        if len(result['times']) > 1:
-            analyzer.visualize(
-                result,
-                time_point=0,
-                show_harmonics_up_to=3
-            )
-        
-        print("Artificial data visualizations complete!")
-
-# Convenience function for quick analysis and visualization
-def analyze_and_visualize(data_source, output_prefix="eeg_analysis", **kwargs):
-    """
-    Convenience function to perform analysis and generate all visualizations.
+    # Create analyzer
+    analyzer = SphericalHarmonicAnalyzer(lmax=8)  # Reduced lmax for faster computation
     
-    Parameters:
-    -----------
-    data_source : str, np.ndarray, mne.io.Raw, or mne.Epochs
-        Data source for analysis
-    output_prefix : str
-        Prefix for output file names
-    **kwargs : dict
-        Additional arguments for the analyzer
+    print("Analyzing EDF file with all available EEG channels...")
+    result = analyzer.analyze(
+        edf_path, 
+        time_window=(100, 120)  # Longer time window for better visualization
+    )
     
-    Returns:
-    --------
-    Dict
-        Analysis results
-    """
-    analyzer = SphericalHarmonicAnalyzer(**kwargs)
-    result = analyzer.analyze(data_source)
+    print(f"Analysis complete!")
+    print(f"Electrodes analyzed: {result['ch_names']}")
+    print(f"Coefficients shape: {result['coefficients'].shape}")
+    print(f"Time points: {len(result['times'])}")
     
-    # Generate all visualizations
+    # Generate comprehensive visualizations
+    print("\nGenerating visualizations...")
+    
+    # 1. Main transformation visualization
+    print("Creating transformation visualization...")
     analyzer.visualize(
         result, 
         time_point=0, 
         show_harmonics_up_to=3
     )
     
-    return result
+    # 2. Time evolution plots
+    if len(result['times']) > 1:
+        print("Creating harmonic evolution plots...")
+        analyzer.visualize(
+            result,
+            time_point=0,
+            show_harmonics_up_to=3
+        )
+
+    # Get original data for comparison
+    data, _, _, _ = analyzer.load_data(edf_path)
+    compare_reconstruction(result, data)
+    
+    print("\nAll visualizations complete! Check the generated plot.")
+
+
+   
