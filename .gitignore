@@ -5,6 +5,10 @@ data/*
 demo.py
 demo_*.py
 
+# YAML configuration files (personal/local configs)
+*.yaml
+*.yml
+
 # Generated image files and test outputs
 *.png
 *.jpg
