@@ -1,5 +1,5 @@
 # regexp: '/PATH_TO_COHORT1/**/*.fif'
-regexp: '/Users/mahta/Projects/OmnEEG/data/TUEG/tuh_eeg/v2.0.0/edf/000/aaaaaaaa/s001_2015_12_30/01_tcp_ar/aaaaaaaa_s001_t000.edf'
+regexp: '${DATA_ROOT}/TUEG/tuh_eeg/v2.0.0/edf/000/aaaaaaaa/s001_2015_12_30/01_tcp_ar/aaaaaaaa_s001_t000.edf'
 create_epochs: False
 rename_channels: False
 set_montage: False
