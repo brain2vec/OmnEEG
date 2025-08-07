@@ -1,6 +1,10 @@
 # Avoid to sync the data folder
 data/*
 
+# Demo files (personal development files)
+demo.py
+demo_*.py
+
 # Generated image files and test outputs
 *.png
 *.jpg
