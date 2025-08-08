@@ -12,6 +12,8 @@ dependencies = [
     "h5py",
     "pyyaml",
     "tqdm",
+    "pandas,
+    "pyshtools",
 ]
 
 [build-system]
