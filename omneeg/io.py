@@ -60,10 +60,10 @@ class EEG(Dataset):
                 montage = mne.channels.make_standard_montage(self.set_montage)
                 eeg.set_montage(montage)
             eeg.resample(sfreq=self.sfreq)
+            eeg.pick_types(meg=False, eeg=True, eog=False)
             if self.create_epochs:
                 eeg = mne.make_fixed_length_epochs(
                     eeg, duration=self.duration, preload=True)
-            eeg.pick_types(meg=False, eeg=True, eog=False)
             if not os.path.exists(os.path.dirname(output)):
                 os.makedirs(os.path.dirname(output))
             out = Interpolate((self.resolution, self.resolution))(

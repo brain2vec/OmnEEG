@@ -1,0 +1,19 @@
+[project]
+name = "OmnEEG"
+version = "0.1.0"
+description = "OmnEEG PyTorch loader"
+requires-python = ">=3.9"
+
+dependencies = [
+    "torch",
+    "matplotlib",
+    "numpy",
+    "mne",
+    "h5py",
+    "pyyaml",
+    "tqdm",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
