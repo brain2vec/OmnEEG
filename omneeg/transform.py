@@ -1,4 +1,6 @@
-from mne.viz.topomap import _adjust_meg_sphere, _GridData, _find_topomap_coords
+from mne.viz.topomap import _adjust_meg_sphere, _GridData
+from mne.channels.layout import _find_topomap_coords
+
 from mne.io.pick import pick_types
 import numpy as np
 
