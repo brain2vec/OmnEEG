@@ -1,6 +1,9 @@
 # Avoid to sync the data folder
 data/*
 
+# Ignore all plots
+plots/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -130,3 +133,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# UV lock file and pyproject.toml (managed by uv)
+uv.lock
+pyproject.toml
