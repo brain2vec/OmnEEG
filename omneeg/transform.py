@@ -9,20 +9,26 @@ class Interpolate(object):
     """Interpolate EEG to a matrix of pixels or spherical harmonics.
     
     Args:
-        output_size (tuple or int): For 2D: desired output size. For 3D: ignored.
+        resolution (int or tuple): For 2D: pixel resolution (width, height) or single int.
+                                  For 3D: maximum harmonic degree (l_max).
         transform_type (str): '2d' for topomap, '3d' for spherical harmonics
-        l_max (int, optional): Maximum harmonic degree for 3D transform
     """
 
-    def __init__(self, output_size, transform_type='2d', l_max=None):
+    def __init__(self, resolution, transform_type='2d'):
         self.transform_type = transform_type
-        self.l_max = l_max
+        self.resolution = resolution
+        
         if transform_type == '2d':
-            assert isinstance(output_size, (int, tuple))
-            self.output_size = output_size
+            # For 2D, resolution can be int or tuple for pixel dimensions
+            if isinstance(resolution, int):
+                self.output_size = (resolution, resolution)
+            else:
+                self.output_size = resolution
         elif transform_type == '3d':
-            if l_max is None:
-                raise ValueError("l_max must be specified for 3D transform")
+            # For 3D, resolution is the l_max parameter
+            if not isinstance(resolution, int):
+                raise ValueError("For 3D transform, resolution must be an integer (l_max)")
+            self.l_max = resolution
         else:
             raise ValueError("transform_type must be '2d' or '3d'")
 

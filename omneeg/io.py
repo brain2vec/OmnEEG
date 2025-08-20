@@ -33,7 +33,6 @@ class EEG(Dataset):
             self.resolution = cfg['resolution']
             self.overwrite = cfg['overwrite']
             self.transform_type = cfg.get('transform_type', '2d')
-            self.l_max = cfg.get('l_max', None)
             self.info = None
         with open(os.path.join(self.data, f'{cohort}.yaml')) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -75,9 +74,8 @@ class EEG(Dataset):
             if not os.path.exists(os.path.dirname(output)):
                 os.makedirs(os.path.dirname(output))
             out = Interpolate(
-                (self.resolution, self.resolution),
-                transform_type=self.transform_type,
-                l_max=self.l_max
+                resolution=self.resolution,
+                transform_type=self.transform_type
             )(eeg[:self.epochs])
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",
