@@ -20,7 +20,7 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 ### 3D Spherical harmonics
 
-[ ] Extract spherical coordinates of sensors (see [this class](https://mne.tools/dev/generated/mne.bem.fit_sphere_to_headshape.html), [these classes](https://github.com/mne-tools/mne-python/blob/35e466f3fbb71cc7b976ae1a88b97409adabf694/mne/transforms.py#L1001), and [that library](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html))
+[X] Extract spherical coordinates of sensors (see [this class](https://mne.tools/dev/generated/mne.bem.fit_sphere_to_headshape.html), [these classes](https://github.com/mne-tools/mne-python/blob/35e466f3fbb71cc7b976ae1a88b97409adabf694/mne/transforms.py#L1001), and [that library](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html))
 
 ### 3D Source reconstruction
 

@@ -1,0 +1,8 @@
+data: "./data/"  # cohort .yaml files + HDF5 epochs
+sfreq: 128  # sampling frequency in Hertz
+duration: 1  # duration of epochs in seconds
+epochs: 10  # number of epochs to extract
+resolution: 8  # resolution: 2D=pixels, 3D=l_max
+overwrite: True  # overwrite HDF5 epochs?
+# Transform type: '2d' for topomap, '3d' for spherical harmonics
+transform_type: "2d"
