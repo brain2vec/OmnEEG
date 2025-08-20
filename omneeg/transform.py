@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+# coding=utf-8
+# ==============================================================================
+# title           : transform.py
+# description     : EEG interpolation transforms for 2D and 3D analysis
+# author          : Mahta Ramezanian Panahi & Guillaume Dumas
+# date            : 2025-08-20
+# version         : 2
+# python_version  : 3.12
+# ==============================================================================
+
 from mne.viz.topomap import _adjust_meg_sphere, _GridData
 from mne.channels.layout import _find_topomap_coords
 import mne

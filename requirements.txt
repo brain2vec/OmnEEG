@@ -1,0 +1,8 @@
+mne
+torch
+h5py
+pyshtools
+matplotlib
+numpy
+tqdm
+pyyaml
