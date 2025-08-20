@@ -1,9 +1,6 @@
 # Avoid to sync the data folder
 data/*
 
-# Ignore all plots
-plots/
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
