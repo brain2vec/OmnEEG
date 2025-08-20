@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # coding=utf-8
 # ==============================================================================
-# title           : demo.py
+# title           : demo_2d.py
 # description     : Demonstration of the OmnEEG PyTorch loader
 # author          : Guillaume Dumas
 # date            : 2022-11-29
 # version         : 1
-# usage           : python demo.py
+# usage           : python demo_2d.py
 # notes           : you need to populate the data folder with YAML files
-# python_version  : 3.9
+# python_version  : 3.12
 # ==============================================================================
 
 from omneeg.io import EEG
@@ -18,9 +18,9 @@ from torch.utils.data import DataLoader
 from tqdm import trange
 
 # Load the datasets
-dataset1 = EEG(cohort='cohort1')
-dataset2 = EEG(cohort='cohort2')
-dataset3 = EEG(cohort='cohort3')
+dataset1 = EEG(cohort='cohort1', config_file='config_2d.yaml')
+dataset2 = EEG(cohort='cohort2', config_file='config_2d.yaml')
+dataset3 = EEG(cohort='cohort3', config_file='config_2d.yaml')
 
 # Check the number of subjects and channels for each dataset
 samp1 = dataset1.__getitem__(0)

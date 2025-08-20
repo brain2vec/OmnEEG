@@ -22,9 +22,9 @@ from omneeg.transform import Interpolate
 
 
 class EEG(Dataset):
-    def __init__(self, cohort) -> None:
+    def __init__(self, cohort, config_file='config.yaml') -> None:
         self.cohort = cohort
-        with open('config.yaml') as f:
+        with open(config_file) as f:
             cfg = yaml.load(f, Loader=yaml.FullLoader)
             self.data = cfg['data']
             self.sfreq = cfg['sfreq']
@@ -32,6 +32,7 @@ class EEG(Dataset):
             self.epochs = cfg['epochs']
             self.resolution = cfg['resolution']
             self.overwrite = cfg['overwrite']
+            self.transform_type = cfg.get('transform_type', '2d')
             self.info = None
         with open(os.path.join(self.data, f'{cohort}.yaml')) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -39,7 +40,7 @@ class EEG(Dataset):
             self.create_epochs = data['create_epochs']
             self.rename_channels = data['rename_channels']
             self.set_montage = data['set_montage']
-        self.filenames = sorted(glob(self.regexp))
+        self.filenames = sorted(glob(self.regexp, recursive=True))
 
     def __getitem__(self, i):
         filename = self.filenames[i]
@@ -56,9 +57,15 @@ class EEG(Dataset):
                 print('File format not supported')
             if self.rename_channels:
                 mne.rename_channels(eeg.info, self.rename_channels)
+                # Set non-EEG channels to misc type
+                #TODO: There must be a more data-efficient way
+                misc_channels = ['PG1', 'PG2', 'EKG', 'SP2', 'SP1', 'RLC', 'LUC', 'CH30', 'PHOTIC']
+                for ch in misc_channels:
+                    if ch in eeg.ch_names:
+                        eeg.set_channel_types({ch: 'misc'})
             if self.set_montage:
                 montage = mne.channels.make_standard_montage(self.set_montage)
-                eeg.set_montage(montage)
+                eeg.set_montage(montage, on_missing='ignore')
             eeg.resample(sfreq=self.sfreq)
             if self.create_epochs:
                 eeg = mne.make_fixed_length_epochs(
@@ -66,8 +73,10 @@ class EEG(Dataset):
             eeg.pick_types(meg=False, eeg=True, eog=False)
             if not os.path.exists(os.path.dirname(output)):
                 os.makedirs(os.path.dirname(output))
-            out = Interpolate((self.resolution, self.resolution))(
-                eeg[:self.epochs])
+            out = Interpolate(
+                resolution=self.resolution,
+                transform_type=self.transform_type
+            )(eeg[:self.epochs])
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",
                                  data=out,
