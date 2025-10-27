@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the provided metadata."
+title: "OmnEEG"
+version: "main"
+date-released: "2025-10-27"
+authors:
+  - family-names: "Ramezanian-Panahi"
+    given-names: "Mahta"
+  - family-names: "Dumas"
+    given-names: "Guillaume"
+license: "BSD-3-Clause"
+url: "https://github.com/brain2vec/OmnEEG"
+abstract: "Simple EEG tokenizer with PyTorch datasets."
