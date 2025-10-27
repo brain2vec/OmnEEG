@@ -16,11 +16,11 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 ### 2D Interpolation
 
-[X] Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448); see [this class](https://github.com/mne-tools/mne-python/blob/0ec28e9ad8e234ea51266644ae1ac35a2bc11f46/mne/viz/top...)
+[X] Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448); see [this class](https://github.com/mne-tools/mne-python/blob/0ec28e9ad8e234ea51266644ae1ac35a2bc11f46/mne/viz/topomap.py#L629))
 
 ### 3D Spherical harmonics
 
-[X] Extract spherical coordinates of sensors (see [this class](https://mne.tools/dev/generated/mne.bem.fit_sphere_to_headshape.html), [these classes](https://github.com/mne-tools/mne-python/blob/3...)
+[X] Extract spherical coordinates of sensors (see [this class](https://mne.tools/dev/generated/mne.bem.fit_sphere_to_headshape.html), [these classes](https://github.com/mne-tools/mne-python/blob/35e466f3fbb71cc7b976ae1a88b97409adabf694/mne/transforms.py#L1001), and [that library](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html))
 
 ### 3D Source reconstruction
 
@@ -36,7 +36,7 @@ OmnEEG (pronounce OmnI-I-G) allows you to feed seamlessly multiple large and het
 
 [ ] Check Riemanian geometry approaches ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797))
 
-[ ] Check T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0)) and beyond (e.g., [GSTH](https://github.com/Krishnaswam...)
+[ ] Check T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0)) and beyond (e.g., [GSTH](https://github.com/KrishnaswamyLab/GSTH))
 
 ### Visualization
 
