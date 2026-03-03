@@ -5,26 +5,28 @@
 # description     : Demonstration of the OmnEEG PyTorch loader
 # author          : Mahta Ramezanian Panahi & Guillaume Dumas
 # date            : 2025-08-20
-# version         : 1
+# version         : 2
 # usage           : python demo_3d.py
 # notes           : you need to populate the data folder with YAML files
 # python_version  : 3.12
 # ==============================================================================
 
+import math
 from omneeg.io import EEG
 import matplotlib.pyplot as plt
 import numpy as np
 
 # Load 3D spherical harmonics dataset
+# Output shape: (n_epochs, resolution, n_times)
 dataset = EEG(cohort='cohort1', config_file='config_3d.yaml')
 samp1 = dataset.__getitem__(0)
 
 print(f"3D Spherical Harmonics Shape: {samp1.shape}")
 
-# Calculate l_max from number of coefficients
-n_coeffs = samp1.shape[1]
-l_max = int(np.sqrt(n_coeffs) - 1)
-print(f"L_max = {l_max}, total coefficients = {n_coeffs}")
+# Calculate l_max from resolution
+resolution = samp1.shape[1]
+l_max = int(math.isqrt(resolution)) - 1
+print(f"L_max = {l_max}, resolution = {resolution}")
 
 # Calculate power spectrum for each spherical harmonic degree l
 power_spectrum = []

@@ -5,12 +5,13 @@
 # description     : Demonstration of the OmnEEG PyTorch loader
 # author          : Guillaume Dumas
 # date            : 2022-11-29
-# version         : 1
+# version         : 2
 # usage           : python demo_2d.py
 # notes           : you need to populate the data folder with YAML files
 # python_version  : 3.12
 # ==============================================================================
 
+import math
 from omneeg.io import EEG
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,6 +24,7 @@ dataset2 = EEG(cohort='cohort2', config_file='config_2d.yaml')
 dataset3 = EEG(cohort='cohort3', config_file='config_2d.yaml')
 
 # Check the number of subjects and channels for each dataset
+# Output shape: (n_epochs, resolution, n_times)
 samp1 = dataset1.__getitem__(0)
 print(f"1: N_participants={dataset1.__len__()} Tensor shape: {samp1.shape}")
 samp2 = dataset2.__getitem__(0)
@@ -31,20 +33,23 @@ samp3 = dataset3.__getitem__(0)
 print(f"3: N_participants={dataset3.__len__()} Tensor shape: {samp3.shape}")
 
 # Visualize the transformed data
+# Reshape flattened spatial features back to 2D grid for display
+grid_side = int(math.isqrt(samp1.shape[1]))
+
 plt.figure(figsize=(20, 5))
 plt.subplot(1, 3, 1)
 vlim = np.abs(samp1).max()
-plt.imshow(samp1[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.imshow(samp1[4, :, 64].reshape(grid_side, grid_side), vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
 plt.colorbar()
 plt.title('Dataset 1')
 plt.subplot(1, 3, 2)
 vlim = np.abs(samp2).max()
-plt.imshow(samp2[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.imshow(samp2[4, :, 64].reshape(grid_side, grid_side), vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
 plt.colorbar()
 plt.title('Dataset 2')
 plt.subplot(1, 3, 3)
 vlim = np.abs(samp3).max()
-plt.imshow(samp3[4, :, :, 64], vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
+plt.imshow(samp3[4, :, 64].reshape(grid_side, grid_side), vmin=-vlim, vmax=+vlim, cmap='RdBu_r')
 plt.colorbar()
 plt.title('Dataset 3')
 plt.tight_layout()
