@@ -17,7 +17,7 @@ where `resolution` is the number of spatial features (must be a perfect square f
 | 2D Topomap | 8x8 pixel grid, flattened | Interpolated scalp topography |
 | 3D Spherical Harmonics | l_max=7, 64 coefficients | Frequency-domain on the sphere |
 | Riemannian | Tangent space pooled to 64 | Log-Euclidean covariance features |
-| Source | 68 atlas regions pooled to 64 | Parcellated inverse solution |
+| Source | 64 Ward-clustered cortical ROIs | Parcellated inverse solution |
 
 ## Installation
 
@@ -66,9 +66,9 @@ step: 1                 # stride in samples
 
 **`config_source.yaml`** — Source reconstruction
 ```yaml
-resolution: 64          # anatomical regions (pooled from parcellation)
+resolution: 64          # number of cortical ROIs (Ward clustering)
 transform_type: "source"
-parc: "aparc"           # atlas: 'aparc' (68 regions) or 'aparc.a2009s' (148 regions)
+# parc: "aparc"         # optional: use atlas instead ('aparc' or 'aparc.a2009s')
 method: "dSPM"          # inverse method: 'MNE', 'dSPM', 'sLORETA', 'eLORETA'
 snr: 3.0                # assumed SNR for regularization
 ```
@@ -91,7 +91,7 @@ Sliding-window covariance matrices projected to the tangent space at the identit
 
 ### Source Reconstruction
 
-Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html)). Builds a forward model from the fsaverage BEM, estimates noise covariance from epochs, applies an inverse operator (dSPM, sLORETA, eLORETA, or MNE), then parcellates source activity into anatomical regions using a cortical atlas (`aparc` for Desikan-Killiany 68 regions, `aparc.a2009s` for Destrieux 148 regions). The forward model is cached across calls. Region time courses are adaptively pooled to match `resolution`.
+Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html)). Builds a forward model from the fsaverage BEM, estimates noise covariance from epochs, and applies an inverse operator (dSPM, sLORETA, eLORETA, or MNE). By default, the cortical surface is dynamically parcellated into exactly `resolution` ROIs using Ward hierarchical clustering with cortical adjacency constraints — no fixed atlas needed. Optionally, set `parc` to use a standard atlas (`aparc` for Desikan-Killiany 68 regions, `aparc.a2009s` for Destrieux 148 regions) with adaptive pooling. The forward model and parcellation are cached across calls.
 
 ## Roadmap
 

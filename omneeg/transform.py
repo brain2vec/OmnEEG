@@ -60,7 +60,7 @@ class Transform(object):
             if window is None:
                 raise ValueError("window parameter is required for Riemannian transform")
         elif transform_type == 'source':
-            self.parc = parc if parc is not None else 'aparc'
+            self.parc = parc  # None = dynamic Ward clustering, or atlas name
             self.method = method if method is not None else 'dSPM'
             self.snr = snr if snr is not None else 3.0
         else:
@@ -220,10 +220,11 @@ class Transform(object):
 
         Uses MNE's template-based source reconstruction with fsaverage:
         1. Build forward model from fsaverage template (cached after first call)
-        2. Estimate noise covariance from epochs
-        3. Compute inverse operator and apply to epochs
-        4. Parcellate source estimates into anatomical regions
-        5. Adaptive pool to match resolution
+        2. Parcellate source space into exactly `resolution` ROIs using
+           Ward clustering on cortical adjacency (or atlas if `parc` is set)
+        3. Estimate noise covariance from epochs
+        4. Compute inverse operator and apply to epochs
+        5. Average source activity within each ROI
 
         Output shape: (n_epochs, resolution, n_times)
         """
@@ -233,7 +234,7 @@ class Transform(object):
         fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
         subjects_dir = os.path.dirname(fs_dir)
 
-        # Cache forward model (same for all subjects with same montage)
+        # Cache forward model and parcellation (same for all subjects)
         if not hasattr(self, '_fwd_cache'):
             src = mne.setup_source_space(
                 'fsaverage', spacing='oct6',
@@ -246,6 +247,23 @@ class Transform(object):
                 bem=bem, eeg=True, mindist=5.0)
             self._src_cache = src
             self._subjects_dir = subjects_dir
+
+            if self.parc is None:
+                # Dynamic Ward clustering on cortical surface
+                from sklearn.cluster import AgglomerativeClustering
+                adjacency = mne.spatial_src_adjacency(src)
+                coords = np.vstack([s['rr'][s['vertno']] for s in src])
+                clustering = AgglomerativeClustering(
+                    n_clusters=self.resolution,
+                    connectivity=adjacency,
+                    linkage='ward')
+                self._cluster_labels = clustering.fit_predict(coords)
+            else:
+                # Atlas-based parcellation
+                labels = mne.read_labels_from_annot(
+                    'fsaverage', parc=self.parc, subjects_dir=subjects_dir)
+                self._atlas_labels = [
+                    lb for lb in labels if 'unknown' not in lb.name.lower()]
 
         fwd = self._fwd_cache
         src = self._src_cache
@@ -261,19 +279,21 @@ class Transform(object):
         stcs = mne.minimum_norm.apply_inverse_epochs(
             eeg, inv, lambda2, method=self.method, verbose=False)
 
-        # Parcellate into anatomical regions
-        labels = mne.read_labels_from_annot(
-            'fsaverage', parc=self.parc, subjects_dir=self._subjects_dir)
-        labels = [lb for lb in labels if 'unknown' not in lb.name.lower()]
-
-        label_ts = mne.extract_label_time_course(
-            stcs, labels, src, mode='mean_flip')
-
-        # Stack: (n_epochs, n_labels, n_times)
-        result = np.array(label_ts)
-
-        # Adaptive pool to target resolution
-        return self._adaptive_pool(result, self.resolution)
+        if self.parc is None:
+            # Average source vertices within each Ward cluster
+            n_times = stcs[0].data.shape[1]
+            result = np.zeros((len(stcs), self.resolution, n_times))
+            for i, stc in enumerate(stcs):
+                for k in range(self.resolution):
+                    mask = self._cluster_labels == k
+                    result[i, k, :] = stc.data[mask].mean(axis=0)
+            return result
+        else:
+            # Atlas parcellation + adaptive pool
+            label_ts = mne.extract_label_time_course(
+                stcs, self._atlas_labels, src, mode='mean_flip')
+            result = np.array(label_ts)
+            return self._adaptive_pool(result, self.resolution)
 
     @staticmethod
     def _adaptive_pool(data, target_features):
