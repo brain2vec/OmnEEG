@@ -38,6 +38,7 @@ class EEG(Dataset):
             self.parc = cfg.get('parc', None)
             self.method = cfg.get('method', None)
             self.snr = cfg.get('snr', None)
+            self.knn = cfg.get('knn', None)
             self.info = None
         with open(os.path.join(self.data, f'{cohort}.yaml')) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -86,6 +87,7 @@ class EEG(Dataset):
                 parc=self.parc,
                 method=self.method,
                 snr=self.snr,
+                knn=self.knn,
             )(eeg[:self.epochs])
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",

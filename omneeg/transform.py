@@ -29,16 +29,18 @@ class Transform(object):
             (e.g. 64 gives 8x8 grid for 2D, l_max=7 for 3D).
         transform_type (str): '2d' for topomap, '3d' for spherical harmonics,
                               'riemann' for Riemannian tangent space,
-                              'source' for source-space parcellation.
+                              'source' for source-space parcellation,
+                              'tphate' for T-PHATE temporal embedding.
         window (int): Window size in samples for Riemannian transform.
         step (int): Step size in samples for Riemannian transform (default: 1).
-        parc (str): Parcellation atlas for source transform (default: 'aparc').
+        parc (str): Parcellation atlas for source transform (default: None = Ward).
         method (str): Inverse method for source transform (default: 'dSPM').
         snr (float): Assumed SNR for inverse regularization (default: 3.0).
+        knn (int): Number of nearest neighbors for T-PHATE (default: 5).
     """
 
     def __init__(self, resolution, transform_type='2d', window=None, step=None,
-                 parc=None, method=None, snr=None):
+                 parc=None, method=None, snr=None, knn=None):
         self.resolution = resolution
         self.transform_type = transform_type
         self.window = window
@@ -63,8 +65,11 @@ class Transform(object):
             self.parc = parc  # None = dynamic Ward clustering, or atlas name
             self.method = method if method is not None else 'dSPM'
             self.snr = snr if snr is not None else 3.0
+        elif transform_type == 'tphate':
+            self.knn = knn if knn is not None else 5
         else:
-            raise ValueError("transform_type must be '2d', '3d', 'riemann', or 'source'")
+            raise ValueError(
+                "transform_type must be '2d', '3d', 'riemann', 'source', or 'tphate'")
 
     def __call__(self, eeg):
         if self.transform_type == '2d':
@@ -75,6 +80,8 @@ class Transform(object):
             return self._riemann(eeg)
         elif self.transform_type == 'source':
             return self._source(eeg)
+        elif self.transform_type == 'tphate':
+            return self._tphate(eeg)
 
     def _interpolate_2d(self, eeg):
         """Transform EEG to flattened topomap features.
@@ -294,6 +301,31 @@ class Transform(object):
                 stcs, self._atlas_labels, src, mode='mean_flip')
             result = np.array(label_ts)
             return self._adaptive_pool(result, self.resolution)
+
+    def _tphate(self, eeg):
+        """Transform EEG to T-PHATE temporal embedding.
+
+        T-PHATE learns a low-dimensional representation of the temporal
+        dynamics by building a time-point affinity graph and applying
+        diffusion-based dimensionality reduction.
+
+        Output shape: (n_epochs, resolution, n_times)
+        where resolution = n_components of the T-PHATE embedding.
+        """
+        import tphate
+
+        data = eeg.get_data()
+        n_epochs, n_channels, n_times = data.shape
+
+        result = np.zeros((n_epochs, self.resolution, n_times))
+
+        for epoch in range(n_epochs):
+            # T-PHATE expects (n_times, n_features)
+            op = tphate.TPHATE(n_components=self.resolution, knn=self.knn)
+            emb = op.fit_transform(data[epoch].T)  # (n_times, resolution)
+            result[epoch] = emb.T  # (resolution, n_times)
+
+        return result
 
     @staticmethod
     def _adaptive_pool(data, target_features):

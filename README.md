@@ -18,6 +18,7 @@ where `resolution` is the number of spatial features (must be a perfect square f
 | 3D Spherical Harmonics | l_max=7, 64 coefficients | Frequency-domain on the sphere |
 | Riemannian | Tangent space pooled to 64 | Log-Euclidean covariance features |
 | Source | 64 Ward-clustered cortical ROIs | Parcellated inverse solution |
+| T-PHATE | 64-dim temporal embedding | Diffusion-based manifold geometry |
 
 ## Installation
 
@@ -30,11 +31,12 @@ pip install -r requirements.txt
 ```python
 from omneeg.io import EEG
 
-# All four produce shape (n_epochs, 64, 128)
+# All five produce shape (n_epochs, 64, 128)
 dataset_2d = EEG(cohort='cohort1', config_file='config_2d.yaml')
 dataset_3d = EEG(cohort='cohort1', config_file='config_3d.yaml')
 dataset_ri = EEG(cohort='cohort1', config_file='config_riemann.yaml')
 dataset_sr = EEG(cohort='cohort1', config_file='config_source.yaml')
+dataset_tp = EEG(cohort='cohort1', config_file='config_tphate.yaml')
 
 sample = dataset_2d[0]
 print(sample.shape)  # (10, 64, 128)
@@ -73,6 +75,13 @@ method: "dSPM"          # inverse method: 'MNE', 'dSPM', 'sLORETA', 'eLORETA'
 snr: 3.0                # assumed SNR for regularization
 ```
 
+**`config_tphate.yaml`** — T-PHATE temporal embedding
+```yaml
+resolution: 64          # embedding dimensions
+transform_type: "tphate"
+knn: 5                  # nearest neighbors for affinity graph
+```
+
 Cohort-specific settings (file patterns, montage, channel renaming) go in `data/<cohort>.yaml`.
 
 ## Transforms
@@ -92,6 +101,10 @@ Sliding-window covariance matrices projected to the tangent space at the identit
 ### Source Reconstruction
 
 Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html)). Builds a forward model from the fsaverage BEM, estimates noise covariance from epochs, and applies an inverse operator (dSPM, sLORETA, eLORETA, or MNE). By default, the cortical surface is dynamically parcellated into exactly `resolution` ROIs using Ward hierarchical clustering with cortical adjacency constraints — no fixed atlas needed. Optionally, set `parc` to use a standard atlas (`aparc` for Desikan-Killiany 68 regions, `aparc.a2009s` for Destrieux 148 regions) with adaptive pooling. The forward model and parcellation are cached across calls.
+
+### T-PHATE
+
+Temporal PHATE ([Tong et al. 2022](https://www.nature.com/articles/s43588-023-00419-0)) learns a low-dimensional embedding of the temporal dynamics by building a time-point affinity graph and applying diffusion-based dimensionality reduction. Each epoch is independently embedded into `resolution` dimensions, preserving the temporal structure. The `knn` parameter controls the locality of the affinity graph.
 
 ## Roadmap
 
@@ -117,7 +130,8 @@ Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 201
 
 ### Pure statistical representation
 
-- [ ] T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0)) and beyond (e.g., [GSTH](https://github.com/KrishnaswamyLab/GSTH))
+- [X] T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0))
+- [ ] GSTH ([code](https://github.com/KrishnaswamyLab/GSTH) and [paper](https://proceedings.neurips.cc/paper/2021/hash/0d3180d672e08b4c5312dcdafdf6ef36-Abstract.html))
 
 ### Visualization
 
