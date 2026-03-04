@@ -35,6 +35,9 @@ class EEG(Dataset):
             self.transform_type = cfg.get('transform_type', '2d')
             self.window = cfg.get('window', None)
             self.step = cfg.get('step', None)
+            self.parc = cfg.get('parc', None)
+            self.method = cfg.get('method', None)
+            self.snr = cfg.get('snr', None)
             self.info = None
         with open(os.path.join(self.data, f'{cohort}.yaml')) as f:
             data = yaml.load(f, Loader=yaml.FullLoader)
@@ -80,6 +83,9 @@ class EEG(Dataset):
                 transform_type=self.transform_type,
                 window=self.window,
                 step=self.step,
+                parc=self.parc,
+                method=self.method,
+                snr=self.snr,
             )(eeg[:self.epochs])
             with h5py.File(output, "w") as f:
                 f.create_dataset("data",

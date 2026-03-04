@@ -28,12 +28,17 @@ class Transform(object):
             Must be a perfect square for '2d' and '3d' transforms
             (e.g. 64 gives 8x8 grid for 2D, l_max=7 for 3D).
         transform_type (str): '2d' for topomap, '3d' for spherical harmonics,
-                              'riemann' for Riemannian tangent space.
+                              'riemann' for Riemannian tangent space,
+                              'source' for source-space parcellation.
         window (int): Window size in samples for Riemannian transform.
         step (int): Step size in samples for Riemannian transform (default: 1).
+        parc (str): Parcellation atlas for source transform (default: 'aparc').
+        method (str): Inverse method for source transform (default: 'dSPM').
+        snr (float): Assumed SNR for inverse regularization (default: 3.0).
     """
 
-    def __init__(self, resolution, transform_type='2d', window=None, step=None):
+    def __init__(self, resolution, transform_type='2d', window=None, step=None,
+                 parc=None, method=None, snr=None):
         self.resolution = resolution
         self.transform_type = transform_type
         self.window = window
@@ -54,8 +59,12 @@ class Transform(object):
         elif transform_type == 'riemann':
             if window is None:
                 raise ValueError("window parameter is required for Riemannian transform")
+        elif transform_type == 'source':
+            self.parc = parc if parc is not None else 'aparc'
+            self.method = method if method is not None else 'dSPM'
+            self.snr = snr if snr is not None else 3.0
         else:
-            raise ValueError("transform_type must be '2d', '3d', or 'riemann'")
+            raise ValueError("transform_type must be '2d', '3d', 'riemann', or 'source'")
 
     def __call__(self, eeg):
         if self.transform_type == '2d':
@@ -64,6 +73,8 @@ class Transform(object):
             return self._interpolate_3d(eeg)
         elif self.transform_type == 'riemann':
             return self._riemann(eeg)
+        elif self.transform_type == 'source':
+            return self._source(eeg)
 
     def _interpolate_2d(self, eeg):
         """Transform EEG to flattened topomap features.
@@ -202,6 +213,66 @@ class Transform(object):
                 result[epoch, :, w] = features
 
         # Adaptive pool from n_tangent to target resolution
+        return self._adaptive_pool(result, self.resolution)
+
+    def _source(self, eeg):
+        """Transform EEG to source-space parcellated time courses.
+
+        Uses MNE's template-based source reconstruction with fsaverage:
+        1. Build forward model from fsaverage template (cached after first call)
+        2. Estimate noise covariance from epochs
+        3. Compute inverse operator and apply to epochs
+        4. Parcellate source estimates into anatomical regions
+        5. Adaptive pool to match resolution
+
+        Output shape: (n_epochs, resolution, n_times)
+        """
+        import os
+
+        # Fetch fsaverage template (MNE caches the download)
+        fs_dir = mne.datasets.fetch_fsaverage(verbose=False)
+        subjects_dir = os.path.dirname(fs_dir)
+
+        # Cache forward model (same for all subjects with same montage)
+        if not hasattr(self, '_fwd_cache'):
+            src = mne.setup_source_space(
+                'fsaverage', spacing='oct6',
+                subjects_dir=subjects_dir, add_dist=False)
+            bem_fname = os.path.join(
+                fs_dir, 'bem', 'fsaverage-5120-5120-5120-bem-sol.fif')
+            bem = mne.read_bem_solution(bem_fname)
+            self._fwd_cache = mne.make_forward_solution(
+                eeg.info, trans='fsaverage', src=src,
+                bem=bem, eeg=True, mindist=5.0)
+            self._src_cache = src
+            self._subjects_dir = subjects_dir
+
+        fwd = self._fwd_cache
+        src = self._src_cache
+
+        # Noise covariance from data (per subject)
+        cov = mne.compute_covariance(eeg, method='empirical')
+
+        # Inverse operator
+        inv = mne.minimum_norm.make_inverse_operator(eeg.info, fwd, cov)
+
+        # Apply inverse to all epochs
+        lambda2 = 1.0 / self.snr ** 2
+        stcs = mne.minimum_norm.apply_inverse_epochs(
+            eeg, inv, lambda2, method=self.method, verbose=False)
+
+        # Parcellate into anatomical regions
+        labels = mne.read_labels_from_annot(
+            'fsaverage', parc=self.parc, subjects_dir=self._subjects_dir)
+        labels = [lb for lb in labels if 'unknown' not in lb.name.lower()]
+
+        label_ts = mne.extract_label_time_course(
+            stcs, labels, src, mode='mean_flip')
+
+        # Stack: (n_epochs, n_labels, n_times)
+        result = np.array(label_ts)
+
+        # Adaptive pool to target resolution
         return self._adaptive_pool(result, self.resolution)
 
     @staticmethod
