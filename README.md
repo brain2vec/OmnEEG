@@ -107,7 +107,7 @@ Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 201
 - [X] 2D Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448))
 - [X] 3D Spherical harmonics ([SHTOOLS](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html))
 - [X] Riemannian tangent space ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797))
-- [X] Source reconstruction with atlas parcellation ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html))
+- [X] Source reconstruction with dynamic Ward parcellation ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html))
 
 ### Source reconstruction extensions
 
