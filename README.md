@@ -16,8 +16,8 @@ where `resolution` is the number of spatial features (must be a perfect square f
 |---|---|---|
 | 2D Topomap | 8x8 pixel grid, flattened | Interpolated scalp topography |
 | 3D Spherical Harmonics | l_max=7, 64 coefficients | Frequency-domain on the sphere |
-| Riemannian | Tangent space pooled to 64 | Log-Euclidean covariance features |
 | Source | 64 Ward-clustered cortical ROIs | Parcellated inverse solution |
+| Riemannian | Tangent space pooled to 64 | Log-Euclidean covariance features |
 | T-PHATE | 64-dim temporal embedding | Diffusion-based manifold geometry |
 
 ## Installation
@@ -34,8 +34,8 @@ from omneeg.io import EEG
 # All five produce shape (n_epochs, 64, 128)
 dataset_2d = EEG(cohort='cohort1', config_file='config_2d.yaml')
 dataset_3d = EEG(cohort='cohort1', config_file='config_3d.yaml')
-dataset_ri = EEG(cohort='cohort1', config_file='config_riemann.yaml')
 dataset_sr = EEG(cohort='cohort1', config_file='config_source.yaml')
+dataset_ri = EEG(cohort='cohort1', config_file='config_riemann.yaml')
 dataset_tp = EEG(cohort='cohort1', config_file='config_tphate.yaml')
 
 sample = dataset_2d[0]
@@ -58,14 +58,6 @@ resolution: 64          # spatial features = (l_max+1)^2 (64 = l_max 7)
 transform_type: "3d"
 ```
 
-**`config_riemann.yaml`** — Riemannian tangent space
-```yaml
-resolution: 64          # spatial features (pooled from tangent space)
-transform_type: "riemann"
-window: 32              # covariance window in samples
-step: 1                 # stride in samples
-```
-
 **`config_source.yaml`** — Source reconstruction
 ```yaml
 resolution: 64          # number of cortical ROIs (Ward clustering)
@@ -73,6 +65,14 @@ transform_type: "source"
 # parc: "aparc"         # optional: use atlas instead ('aparc' or 'aparc.a2009s')
 method: "dSPM"          # inverse method: 'MNE', 'dSPM', 'sLORETA', 'eLORETA'
 snr: 3.0                # assumed SNR for regularization
+```
+
+**`config_riemann.yaml`** — Riemannian tangent space
+```yaml
+resolution: 64          # spatial features (pooled from tangent space)
+transform_type: "riemann"
+window: 32              # covariance window in samples
+step: 1                 # stride in samples
 ```
 
 **`config_tphate.yaml`** — T-PHATE temporal embedding
@@ -94,49 +94,17 @@ Interpolates EEG onto a flat grid using MNE's topomap machinery ([Bashivan et al
 
 Projects EEG sensor data onto spherical harmonic basis functions via least-squares ([SHTOOLS](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html)). The maximum degree `l_max = sqrt(resolution) - 1`.
 
-### Riemannian Tangent Space
-
-Sliding-window covariance matrices projected to the tangent space at the identity via the log-Euclidean framework ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797)). The signal is reflect-padded so the time dimension is preserved. Tangent space features are adaptively pooled to match `resolution`.
-
 ### Source Reconstruction
 
 Template-based source reconstruction using MNE's fsaverage ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html)). Builds a forward model from the fsaverage BEM, estimates noise covariance from epochs, and applies an inverse operator (dSPM, sLORETA, eLORETA, or MNE). By default, the cortical surface is dynamically parcellated into exactly `resolution` ROIs using Ward hierarchical clustering with cortical adjacency constraints — no fixed atlas needed. Optionally, set `parc` to use a standard atlas (`aparc` for Desikan-Killiany 68 regions, `aparc.a2009s` for Destrieux 148 regions) with adaptive pooling. The forward model and parcellation are cached across calls.
 
+### Riemannian Tangent Space
+
+Sliding-window covariance matrices projected to the tangent space at the identity via the log-Euclidean framework ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797)). The signal is reflect-padded so the time dimension is preserved. Tangent space features are adaptively pooled to match `resolution`.
+
 ### T-PHATE
 
 Temporal PHATE ([Tong et al. 2022](https://www.nature.com/articles/s43588-023-00419-0)) learns a low-dimensional embedding of the temporal dynamics by building a time-point affinity graph and applying diffusion-based dimensionality reduction. Each epoch is independently embedded into `resolution` dimensions, preserving the temporal structure. The `knn` parameter controls the locality of the affinity graph.
-
-## Roadmap
-
-### Data handling
-
-- [X] PyTorch dataset integration
-- [X] YAML config files (global + cohorts)
-- [X] HDF5 export
-- [X] Integrate as a Transform operator in the Dataset class (see [this tutorial](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html#transforms))
-
-### Tokenization schemes
-
-- [X] 2D Topomap generation ([Bashivan et al. 2015](https://arxiv.org/abs/1511.06448))
-- [X] 3D Spherical harmonics ([SHTOOLS](https://shtools.github.io/SHTOOLS/pyshexpandlsq.html))
-- [X] Riemannian tangent space ([Sabbagh et al. 2020](https://www.sciencedirect.com/science/article/pii/S1053811920303797))
-- [X] Source reconstruction with dynamic Ward parcellation ([Gramfort et al. 2013](https://mne.tools/stable/auto_tutorials/inverse/index.html))
-
-### Source reconstruction extensions
-
-- [ ] Spherical model ([Yao 2001](https://mne.tools/1.1/auto_tutorials/preprocessing/55_setting_eeg_reference.html#using-an-infinite-reference-rest))
-- [ ] Volumic template ([Gramfort et al. 2013](https://mne.tools/1.1/auto_examples/inverse/compute_mne_inverse_volume.html))
-- [ ] Individual anatomy morphed onto a template ([Avants et al. 2008](https://mne.tools/1.1/auto_examples/inverse/morph_volume_stc.html#sphx-glr-auto-examples-inverse-morph-volume-stc-py))
-
-### Pure statistical representation
-
-- [X] T-PHATE method ([code](https://github.com/KrishnaswamyLab/TPHATE) and [paper](https://www.nature.com/articles/s43588-023-00419-0))
-- [ ] GSTH ([code](https://github.com/KrishnaswamyLab/GSTH) and [paper](https://proceedings.neurips.cc/paper/2021/hash/0d3180d672e08b4c5312dcdafdf6ef36-Abstract.html))
-
-### Visualization
-
-- [ ] Train a model for plotting different representations (e.g., a "cubic brain") of the data based on the latent space.
-
 
 ## Citation
 
