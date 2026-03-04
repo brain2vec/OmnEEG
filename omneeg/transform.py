@@ -154,15 +154,23 @@ class Transform(object):
         Uses sliding-window covariance matrices projected to tangent space
         via the log-Euclidean framework (matrix logarithm + vectorization).
 
-        Output shape: (n_epochs, resolution, n_windows)
-        where n_windows = (n_times - window) // step + 1.
+        The signal is reflect-padded by window//2 on each side so that
+        n_windows = n_times, preserving the original time dimension.
+
+        Output shape: (n_epochs, resolution, n_times)
         """
         data = eeg.get_data()
         n_epochs, n_channels, n_times = data.shape
 
         window = self.window
         step = self.step
-        n_windows = (n_times - window) // step + 1
+
+        # Reflect-pad so that n_windows = n_times (with step=1)
+        pad_left = window // 2
+        pad_right = window - 1 - pad_left
+        data = np.pad(data, ((0, 0), (0, 0), (pad_left, pad_right)), mode='reflect')
+        n_times_padded = data.shape[2]
+        n_windows = (n_times_padded - window) // step + 1
 
         n_tangent = n_channels * (n_channels + 1) // 2
 
