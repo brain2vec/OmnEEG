@@ -12,13 +12,13 @@ All tokenization schemes produce the same output shape:
 
 where `resolution` is the number of spatial features (must be a perfect square for 2D and 3D transforms). This makes downstream models agnostic to the tokenization scheme.
 
-| Transform | `resolution=64` | Internal representation |
+| Transform | `resolution=256` | Internal representation |
 |---|---|---|
-| 2D Topomap | 8x8 pixel grid, flattened | Interpolated scalp topography |
-| 3D Spherical Harmonics | l_max=7, 64 coefficients | Frequency-domain on the sphere |
-| Source | 64 Ward-clustered cortical ROIs | Parcellated inverse solution |
-| Riemannian | Tangent space pooled to 64 | Log-Euclidean covariance features |
-| T-PHATE | 64-dim temporal embedding | Diffusion-based manifold geometry |
+| 2D Topomap | 16x16 pixel grid, flattened | Interpolated scalp topography |
+| 3D Spherical Harmonics | l_max=15, 256 coefficients | Frequency-domain on the sphere |
+| Source | 256 Ward-clustered cortical ROIs | Parcellated inverse solution |
+| Riemannian | Tangent space pooled to 256 | Log-Euclidean covariance features |
+| T-PHATE | 256-dim temporal embedding | Diffusion-based manifold geometry |
 
 ## Installation
 
@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ```python
 from omneeg.io import EEG
 
-# All five produce shape (n_epochs, 64, 128)
+# All five produce shape (n_epochs, 256, 128)
 dataset_2d = EEG(cohort='cohort1', config_file='config_2d.yaml')
 dataset_3d = EEG(cohort='cohort1', config_file='config_3d.yaml')
 dataset_sr = EEG(cohort='cohort1', config_file='config_source.yaml')
@@ -39,7 +39,7 @@ dataset_ri = EEG(cohort='cohort1', config_file='config_riemann.yaml')
 dataset_tp = EEG(cohort='cohort1', config_file='config_tphate.yaml')
 
 sample = dataset_2d[0]
-print(sample.shape)  # (10, 64, 128)
+print(sample.shape)  # (10, 256, 128)
 ```
 
 ## Configuration
@@ -48,19 +48,19 @@ Global settings are in YAML config files. One per transform type:
 
 **`config_2d.yaml`** — Topomap interpolation
 ```yaml
-resolution: 64          # spatial features = grid_side^2 (64 = 8x8)
+resolution: 256          # spatial features = grid_side^2 (256 = 16x16)
 transform_type: "2d"
 ```
 
 **`config_3d.yaml`** — Spherical harmonics
 ```yaml
-resolution: 64          # spatial features = (l_max+1)^2 (64 = l_max 7)
+resolution: 256          # spatial features = (l_max+1)^2 (256 = l_max 15)
 transform_type: "3d"
 ```
 
 **`config_source.yaml`** — Source reconstruction
 ```yaml
-resolution: 64          # number of cortical ROIs (Ward clustering)
+resolution: 256          # number of cortical ROIs (Ward clustering)
 transform_type: "source"
 # parc: "aparc"         # optional: use atlas instead ('aparc' or 'aparc.a2009s')
 method: "dSPM"          # inverse method: 'MNE', 'dSPM', 'sLORETA', 'eLORETA'
@@ -69,7 +69,7 @@ snr: 3.0                # assumed SNR for regularization
 
 **`config_riemann.yaml`** — Riemannian tangent space
 ```yaml
-resolution: 64          # spatial features (pooled from tangent space)
+resolution: 256          # spatial features (pooled from tangent space)
 transform_type: "riemann"
 window: 32              # covariance window in samples
 step: 1                 # stride in samples
@@ -77,7 +77,7 @@ step: 1                 # stride in samples
 
 **`config_tphate.yaml`** — T-PHATE temporal embedding
 ```yaml
-resolution: 64          # embedding dimensions
+resolution: 256          # embedding dimensions
 transform_type: "tphate"
 knn: 5                  # nearest neighbors for affinity graph
 ```
